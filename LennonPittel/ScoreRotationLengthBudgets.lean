@@ -87,8 +87,8 @@ theorem exists_eventually_measure_longRotationLengthBudget_bad {ε η : ℝ}
       continuousScoreLaw n {x | ε * ((n : ℝ) * Real.log n) <
         profileSingletonAnchorLengthWeight (profileOfScores x)
           (longRotationLengthWeight (A * Real.sqrt n))} ≤ ENNReal.ofReal η := by
-  let C₁ := Real.exp 5 * (54 * Real.exp 4)
-  let C₂ := Real.exp 5 * (144 * Real.exp 16)
+  let C₁ := singletonMomentScale * (54 * Real.exp 4)
+  let C₂ := singletonMomentScale * (144 * Real.exp 16)
   let δ := ε * η / 3
   have hδ : 0 < δ := by positivity
   have hA_lim : Tendsto (fun A : ℝ ↦ C₂ * Real.exp (-A)) atTop (𝓝 0) := by
@@ -114,10 +114,10 @@ theorem exists_eventually_measure_longRotationLengthBudget_bad {ε η : ℝ}
   have hsqrt : Real.sqrt (Real.sqrt (n : ℝ)) = (n : ℝ) ^ (1 / 4 : ℝ) := by
     rw [Real.sqrt_eq_rpow, Real.sqrt_eq_rpow, ← Real.rpow_mul hn₀.le]
     norm_num
-  have hc : Real.exp 5 * ((54 * Real.exp 4) / Real.sqrt (Real.sqrt (n : ℝ)) +
+  have hc : singletonMomentScale * ((54 * Real.exp 4) / Real.sqrt (Real.sqrt (n : ℝ)) +
         144 * Real.exp 16 * Real.exp (-A)) ≤ 2 * δ := by
     rw [hsqrt]
-    have hsplit : Real.exp 5 * ((54 * Real.exp 4) / ((n : ℝ) ^ (1 / 4 : ℝ)) +
+    have hsplit : singletonMomentScale * ((54 * Real.exp 4) / ((n : ℝ) ^ (1 / 4 : ℝ)) +
         144 * Real.exp 16 * Real.exp (-A)) =
         C₁ * (n : ℝ) ^ (-(1 / 4) : ℝ) + C₂ * Real.exp (-A) := by
       rw [Real.rpow_neg hn₀.le]
@@ -131,6 +131,7 @@ theorem exists_eventually_measure_longRotationLengthBudget_bad {ε η : ℝ}
   · apply ENNReal.ofReal_le_ofReal
     exact (div_le_iff₀ (mul_pos hε hb)).mpr (by ring_nf; exact le_rfl)
   · refine (hm A).trans ?_
+    have hscale := singletonMomentScale_pos
     rw [← ENNReal.ofReal_mul hb.le, ← ENNReal.ofReal_add (by positivity) (by positivity)]
     apply ENNReal.ofReal_le_ofReal
     calc
@@ -162,7 +163,7 @@ theorem tendsto_measure_shortRotationLengthBudget_bad {ε : ℝ} (hε : 0 < ε) 
     Tendsto (fun n : ℕ ↦ continuousScoreLaw n {x | ε * ((n : ℝ) * Real.log n) <
       profileSingletonAnchorLengthWeight (profileOfScores x)
         (shortRotationLengthWeight ((n : ℝ) ^ (1 / 4 : ℝ)))}) atTop (𝓝 0) := by
-  let C := Real.exp 5 * (108 + 48 * Real.exp 4)
+  let C := singletonMomentScale * (108 + 48 * Real.exp 4)
   have hlimit : Tendsto (fun n : ℕ ↦ ENNReal.ofReal
       ((C + 1) / ε * (n : ℝ) ^ (-(1 / 4) : ℝ))) atTop (𝓝 0) := by
     simpa only [mul_zero, ENNReal.ofReal_zero] using
@@ -234,8 +235,11 @@ theorem exists_eventually_measure_shortRotationLengthBudget_bad {ε η : ℝ}
       continuousScoreLaw n {x | ε * ((n : ℝ) * Real.log n) <
         profileSingletonAnchorLengthWeight (profileOfScores x)
           (shortRotationLengthWeight (b * Real.sqrt n))} ≤ ENNReal.ofReal η := by
-  let C := Real.exp 5 * (108 + 48 * Real.exp 4)
-  have hC : 0 < C + 1 := by dsimp [C]; positivity
+  let C := singletonMomentScale * (108 + 48 * Real.exp 4)
+  have hC : 0 < C + 1 := by
+    have hscale := singletonMomentScale_pos
+    dsimp [C]
+    positivity
   let b := min 1 (ε * η / (C + 1))
   have hb : 0 < b := lt_min zero_lt_one (div_pos (mul_pos hε hη) hC)
   have hbudget : b * (C + 1) ≤ ε * η := (le_div_iff₀ hC).mp (min_le_right _ _)

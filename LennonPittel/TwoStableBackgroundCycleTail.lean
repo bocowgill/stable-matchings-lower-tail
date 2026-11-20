@@ -39,8 +39,8 @@ noncomputable def jointBackgroundWeight (d : JointSpouseScores μ ν) (j : Fin n
   jointWomanSpouseScoreRight d (ν j) / jointBackgroundFemaleTotal d
 
 /-- The uniform relative error used for the independent common forward rows. -/
-noncomputable def jointBackgroundArcError (d : JointSpouseScores μ ν) (X P : ℝ) : ℝ :=
-  2 * X + 4 * P + Real.exp (-jointBackgroundFemaleTotal d / 2)
+noncomputable def jointBackgroundArcError (d : JointSpouseScores μ ν) (X : ℝ) : ℝ :=
+  X + 1 / jointBackgroundFemaleTotal d
 
 @[simp]
 theorem jointBackgroundFemaleTotal_split (μ ν : Matching n) (x : ScoreProfile n) :
@@ -65,11 +65,10 @@ theorem measurable_jointBackgroundWeight (μ ν : Matching n) (j : Fin n) :
   (measurable_snd.comp (measurable_pi_apply _)).div (measurable_jointBackgroundFemaleTotal μ ν)
 
 /-- The quantitative geometric hypotheses needed on a marked score sector. -/
-structure HasJointBackgroundGeometry (d : JointSpouseScores μ ν) (L : ℕ) (X P : ℝ) : Prop where
+structure HasJointBackgroundGeometry (d : JointSpouseScores μ ν) (L : ℕ) (X : ℝ) : Prop where
   total_pos : 0 < jointBackgroundFemaleTotal d
   male_le : ∀ i, jointManSpouseScoreRight d i ≤ X
-  weight_le : ∀ i, jointBackgroundWeight d i ≤ P
-  arc_loss : (L : ℝ) * jointBackgroundArcError d X P ≤ 1 / 100
+  arc_loss : (L : ℝ) * jointBackgroundArcError d X ≤ 1 / 100
   label_loss : commonForwardLabelLoss (jointBackgroundLabels μ ν) (jointBackgroundWeight d) L ≤
     1 / 100
 
@@ -86,12 +85,36 @@ theorem sum_jointBackgroundWeight (d : JointSpouseScores μ ν)
   rw [← Finset.sum_div]
   exact div_self hY.ne'
 
+/-- The accumulated loss controls the single-row error throughout the cycle window. -/
+theorem HasJointBackgroundGeometry.arcError_mem {d : JointSpouseScores μ ν} {L : ℕ} {X : ℝ}
+    (h : HasJointBackgroundGeometry d L X) (hL : 2 ≤ L) (hX : 0 ≤ X) :
+    jointBackgroundArcError d X ∈ Icc 0 1 := by
+  have hδ := add_nonneg hX (one_div_nonneg.mpr h.total_pos.le)
+  have hL' : 1 ≤ (L : ℝ) := by exact_mod_cast (show 1 ≤ L by omega)
+  exact ⟨hδ, (le_mul_of_one_le_left hδ hL').trans (h.arc_loss.trans (by norm_num))⟩
+
+/-- Every common row dominates the normalized female scores with the sector's relative error. -/
+theorem HasJointBackgroundGeometry.arcLower
+    [MeasurableSpace (Option (Fin n))] [MeasurableSingletonClass (Option (Fin n))]
+    {d : JointSpouseScores μ ν} {L : ℕ} {X : ℝ} (h : HasJointBackgroundGeometry d L X)
+    [∀ i, IsProbabilityMeasure (jointCommonSuccessorLaw d i)]
+    (hmR : ∀ i, jointManSpouseScoreRight d i ∈ Ico 0 1)
+    (hfL : ∀ w, jointWomanSpouseScoreLeft d w ∈ Icc 0 1)
+    (hfR : ∀ w, jointWomanSpouseScoreRight d w ∈ Icc 0 1) :
+    CommonForwardArcLower (jointCommonSuccessorLaw d) (jointBackgroundLabels μ ν)
+      (jointBackgroundWeight d) (jointBackgroundArcError d X) := by
+  intro i hi j _ hij
+  let ic : CommonMan μ ν := ⟨i, mem_jointBackgroundLabels.mp hi⟩
+  let jc : CommonRowCandidate ic := ⟨j, hij⟩
+  exact (ENNReal.ofReal_le_iff_le_toReal (measure_ne_top _ _)).mp
+    (jointCommonSuccessorLaw_some_lower d ic jc (hmR i) hfL hfR (h.male_le i) h.total_pos)
+
 /-- On the spouse-score sector, the conditional finite successor graph has
 few common-label short cycles with probability at most `1200 / log L`. -/
 theorem jointOffSpouseProbabilityLaw_fewCommonSuccessorCycles_le
     (d : JointSpouseScores μ ν) {L : ℕ} (hL : 2 ≤ L) (hlog : 100 ≤ Real.log (L : ℝ))
-    {X P : ℝ} (hX : 0 ≤ X) (hP : 0 ≤ P) (hsmall : X + 2 * P ≤ 1 / 2)
-    (hgeo : HasJointBackgroundGeometry d L X P)
+    {X : ℝ} (hX : 0 ≤ X)
+    (hgeo : HasJointBackgroundGeometry d L X)
     (hmL : ∀ i, jointManSpouseScoreLeft d i ∈ Ico 0 1)
     (hmR : ∀ i, jointManSpouseScoreRight d i ∈ Ico 0 1)
     (hfL : ∀ w, jointWomanSpouseScoreLeft d w ∈ Icc 0 1)
@@ -104,40 +127,19 @@ theorem jointOffSpouseProbabilityLaw_fewCommonSuccessorCycles_le
   let : DiscreteMeasurableSpace (Option (Fin n)) := ⟨fun _ ↦ trivial⟩
   let C := jointBackgroundLabels μ ν
   let p := jointBackgroundWeight d
-  let δ := jointBackgroundArcError d X P
   let r := jointCommonSuccessorLaw d
   have hpos := (jointOffSpouseScoreLaw_nonblocking_pos d hmL hmR).ne'
   let (i : Fin n) : IsProbabilityMeasure (r i) :=
     jointCommonSuccessorLaw_isProbabilityMeasure d hpos i
   have hp : ∀ i, 0 ≤ p i := jointBackgroundWeight_nonneg d hfR hgeo.total_pos
-  have hδ0 : 0 ≤ δ := by
-    unfold δ jointBackgroundArcError
-    positivity
-  have hδ : δ ∈ Icc 0 1 := by
-    have hL' : 1 ≤ (L : ℝ) := by exact_mod_cast (show 1 ≤ L by omega)
-    have hh : δ ≤ (L : ℝ) * δ := le_mul_of_one_le_left hδ0 hL'
-    exact ⟨hδ0, hh.trans (hgeo.arc_loss.trans (by norm_num))⟩
-  have harc : CommonForwardArcBounds r C p δ := by
-    intro i hi j _ hij
-    let ic : CommonMan μ ν := ⟨i, mem_jointBackgroundLabels.mp hi⟩
-    let jc : CommonRowCandidate ic := ⟨j, hij⟩
-    have h := jointCommonSuccessorLaw_some_uniform d ic jc (hmR i) hfL hfR
-      (hgeo.male_le i) hsmall hgeo.total_pos hgeo.weight_le
-    change ENNReal.ofReal ((1 - δ) * p j) ≤ (r i) {some j} ∧
-      (r i) {some j} ≤ ENNReal.ofReal ((1 + δ) * p j) at h
-    have hlo : 0 ≤ (1 - δ) * p j := mul_nonneg (sub_nonneg.mpr hδ.2) (hp j)
-    have hhi : 0 ≤ (1 + δ) * p j := mul_nonneg (by linarith only [hδ0]) (hp j)
-    exact ⟨by simpa only [ENNReal.toReal_ofReal hlo, measureReal_def] using
-      ENNReal.toReal_mono (measure_ne_top (r i) {some j}) h.1,
-      by simpa only [ENNReal.toReal_ofReal hhi, measureReal_def] using
-        ENNReal.toReal_mono ENNReal.ofReal_ne_top h.2⟩
   let E : Set (Fin n → Option (Fin n)) := {f | (commonForwardCycleCount C L f : ℝ) <
     (9 / 10 : ℝ) * Real.log (L : ℝ)}
   change jointOffSpouseProbabilityLaw d (jointCommonSuccessors d ⁻¹' E) ≤ _
   rw [(measurePreserving_jointCommonSuccessors d hpos).measure_preimage
     (MeasurableSet.of_discrete : MeasurableSet E).nullMeasurableSet]
   exact measure_lt_commonForwardCycleCount_le r C hL p hp
-    (sum_jointBackgroundWeight d hgeo.total_pos) hδ harc hgeo.arc_loss hgeo.label_loss hlog
+    (sum_jointBackgroundWeight d hgeo.total_pos) (hgeo.arcError_mem hL hX) (hgeo.arcLower hmR hfL hfR)
+    hgeo.arc_loss hgeo.label_loss hlog
 
 /-- The common-row count agrees almost surely with the exposed rotation count
 computed in the reconstructed preference profile. -/
@@ -175,9 +177,9 @@ theorem ae_jointSpouse_ae_commonForwardCycleCount_eq (μ ν : Matching n) (L : �
 /-- Almost-everywhere conditional estimate for too few actual exposed common cycles. -/
 theorem ae_jointOffSpouseProbabilityLaw_backgroundShortCycleException_le
     (μ ν : Matching n) {L : ℕ} (hL : 2 ≤ L) (hlog : 100 ≤ Real.log (L : ℝ))
-    {X P : ℝ} (hX : 0 ≤ X) (hP : 0 ≤ P) (hsmall : X + 2 * P ≤ 1 / 2) :
+    {X : ℝ} (hX : 0 ≤ X) :
     ∀ᵐ d ∂jointSpouseScoreLaw μ ν, d ∈ jointMarkedNonblocking μ ν →
-      HasJointBackgroundGeometry d L X P →
+      HasJointBackgroundGeometry d L X →
       jointOffSpouseProbabilityLaw d ((fun v ↦ (splitTwoMatchingScores μ ν).symm (d, v)) ⁻¹'
         backgroundShortCycleException μ ν L) ≤ ENNReal.ofReal (1200 / Real.log (L : ℝ)) := by
   filter_upwards [ae_jointSpouse_thresholds μ ν,
@@ -195,7 +197,7 @@ theorem ae_jointOffSpouseProbabilityLaw_backgroundShortCycleException_le
           ℝ) < (9 / 10 : ℝ) * Real.log (L : ℝ)
     rw [hv hmark]
   rw [measure_congr heq]
-  exact jointOffSpouseProbabilityLaw_fewCommonSuccessorCycles_le d hL hlog hX hP hsmall hgeo
+  exact jointOffSpouseProbabilityLaw_fewCommonSuccessorCycles_le d hL hlog hX hgeo
     hd.1 hd.2.1 hd.2.2.1 hd.2.2.2
 
 /-- A fixed pair's background exception costs at most `1200 / log L` times
@@ -203,9 +205,9 @@ its joint-stability mass on the marked score sector. The sector may include a
 fixed orientation test, but it does not constrain the unmarked cells. -/
 theorem continuousScoreLaw_inter_backgroundShortCycleException_le
     (μ ν : Matching n) {L : ℕ} (hL : 2 ≤ L) (hlog : 100 ≤ Real.log (L : ℝ))
-    {X P : ℝ} (hX : 0 ≤ X) (hP : 0 ≤ P) (hsmall : X + 2 * P ≤ 1 / 2)
+    {X : ℝ} (hX : 0 ≤ X)
     {D : Set (JointSpouseScores μ ν)} (hD : MeasurableSet D)
-    (hgeo : ∀ᵐ d ∂jointSpouseScoreLaw μ ν, d ∈ D → HasJointBackgroundGeometry d L X P) :
+    (hgeo : ∀ᵐ d ∂jointSpouseScoreLaw μ ν, d ∈ D → HasJointBackgroundGeometry d L X) :
     let A := {x | IsScoreStable x μ ∧ IsScoreStable x ν ∧ (splitTwoMatchingScores μ ν x).1 ∈ D}
     continuousScoreLaw n (A ∩ backgroundShortCycleException μ ν L) ≤
       ENNReal.ofReal (1200 / Real.log (L : ℝ)) * continuousScoreLaw n A := by
@@ -234,7 +236,7 @@ theorem continuousScoreLaw_inter_backgroundShortCycleException_le
       (∫⁻ v, g (e.symm (d, v)) ∂(Measure.pi (jointOffSpouseCellLaw d))) ≤ c * W d := by
     rw [ae_restrict_iff' (hD.inter (measurableSet_jointMarkedNonblocking μ ν))]
     filter_upwards [ae_jointOffSpouseProbabilityLaw_backgroundShortCycleException_le μ ν
-      hL hlog hX hP hsmall, ae_jointSpouse_thresholds μ ν, hgeo] with d hd hu hgd hmem
+      hL hlog hX, ae_jointSpouse_thresholds μ ν, hgeo] with d hd hu hgd hmem
     have hpos := (jointOffSpouseScoreLaw_nonblocking_pos d hu.1 hu.2.1).ne'
     let F := (fun v ↦ e.symm (d, v)) ⁻¹' E
     have hF : MeasurableSet F := hE.preimage
@@ -270,24 +272,24 @@ theorem continuousScoreLaw_inter_backgroundShortCycleException_le
 fixed-pair background bound on the retained marked score sector. -/
 theorem measure_scoreIncomparablePairEvent_inter_backgroundShortCycleException_le
     (μ ν : Matching n) {L : ℕ} (hL : 2 ≤ L) (hlog : 100 ≤ Real.log (L : ℝ))
-    {X P : ℝ} (hX : 0 ≤ X) (hP : 0 ≤ P) (hsmall : X + 2 * P ≤ 1 / 2)
+    {X : ℝ} (hX : 0 ≤ X)
     {D : Set (JointSpouseScores μ ν)} (hD : MeasurableSet D)
-    (hgeo : ∀ᵐ d ∂jointSpouseScoreLaw μ ν, d ∈ D → HasJointBackgroundGeometry d L X P)
+    (hgeo : ∀ᵐ d ∂jointSpouseScoreLaw μ ν, d ∈ D → HasJointBackgroundGeometry d L X)
     {Q : ScoreProfile n → Matching n → Matching n → Prop}
     (hQ : ∀ x ∈ scoreIncomparablePairEvent Q μ ν, (splitTwoMatchingScores μ ν x).1 ∈ D) :
     continuousScoreLaw n (scoreIncomparablePairEvent Q μ ν ∩ backgroundShortCycleException μ ν L) ≤
       ENNReal.ofReal (1200 / Real.log (L : ℝ)) * continuousScoreLaw n
         {x | IsScoreStable x μ ∧ IsScoreStable x ν ∧ (splitTwoMatchingScores μ ν x).1 ∈ D} := by
   refine (measure_mono ?_).trans
-    (continuousScoreLaw_inter_backgroundShortCycleException_le μ ν hL hlog hX hP hsmall hD hgeo)
+    (continuousScoreLaw_inter_backgroundShortCycleException_le μ ν hL hlog hX hD hgeo)
   exact fun x hx ↦ ⟨⟨hx.1.1, hx.1.2.1, hQ x hx.1⟩, hx.2⟩
 
 /-- Real-valued form of the marked estimate, for summing fixed-pair masses. -/
 theorem measureReal_scoreIncomparablePairEvent_inter_backgroundShortCycleException_le
     (μ ν : Matching n) {L : ℕ} (hL : 2 ≤ L) (hlog : 100 ≤ Real.log (L : ℝ))
-    {X P : ℝ} (hX : 0 ≤ X) (hP : 0 ≤ P) (hsmall : X + 2 * P ≤ 1 / 2)
+    {X : ℝ} (hX : 0 ≤ X)
     {D : Set (JointSpouseScores μ ν)} (hD : MeasurableSet D)
-    (hgeo : ∀ᵐ d ∂jointSpouseScoreLaw μ ν, d ∈ D → HasJointBackgroundGeometry d L X P)
+    (hgeo : ∀ᵐ d ∂jointSpouseScoreLaw μ ν, d ∈ D → HasJointBackgroundGeometry d L X)
     {Q : ScoreProfile n → Matching n → Matching n → Prop}
     (hQ : ∀ x ∈ scoreIncomparablePairEvent Q μ ν, (splitTwoMatchingScores μ ν x).1 ∈ D) :
     (continuousScoreLaw n).real
@@ -299,6 +301,6 @@ theorem measureReal_scoreIncomparablePairEvent_inter_backgroundShortCycleExcepti
   simpa only [measureReal_def, ENNReal.toReal_mul, ENNReal.toReal_ofReal hc] using
     ENNReal.toReal_mono (ENNReal.mul_ne_top ENNReal.ofReal_ne_top (measure_ne_top _ _))
       (measure_scoreIncomparablePairEvent_inter_backgroundShortCycleException_le
-        μ ν hL hlog hX hP hsmall hD hgeo hQ)
+        μ ν hL hlog hX hD hgeo hQ)
 
 end LennonPittelFormalization

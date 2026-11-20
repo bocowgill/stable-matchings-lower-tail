@@ -3,12 +3,11 @@ module
 public import LennonPittel.CoexposureGoodScores
 public import LennonPittel.CoexposureScoreProduct
 public import LennonPittel.CoexposureScoreRow
-public import LennonPittel.CoexposureCycleMoment
 public import LennonPittel.CoexposureGaussianSum
 public import LennonPittel.CoexposureScoreEstimates
 
 /-!
-# The weighted moment for good stable score profiles
+# Successor bounds for good stable score profiles
 
 The stable cells of a fixed matching form independent unnormalized rows.
 The diagonal cutoffs bound the successor marginals in these rows.
@@ -173,118 +172,5 @@ theorem stableScoreRowLaw_successor_le_of_goodDiagonalScores {n : ℕ} {d : Diag
     (∑ k : {k : {k : Fin n // i ≠ k} // k ≠ j}, diagonalFemale d k.val.val)) ≤ _
   rw [hsum]
   exact harc.2
-
-private theorem ae_diagonalMale_mem_Ico (n : ℕ) :
-    ∀ᵐ d ∂diagonalScoreLaw n, ∀ i, diagonalMale d i ∈ Ico (0 : ℝ) 1 := by
-  have hne : ∀ᵐ t ∂unitScoreLaw, t ≠ (1 : ℝ) := by
-    rw [ae_iff]
-    simp
-  have hu : ∀ᵐ t ∂unitScoreLaw, t ∈ Ico (0 : ℝ) 1 := by
-    filter_upwards [ae_restrict_mem (μ := volume) (measurableSet_Icc :
-      MeasurableSet (Icc (0 : ℝ) 1)), hne] with t ht hne
-    exact ⟨ht.1, lt_of_le_of_ne ht.2 hne⟩
-  have hp : ∀ᵐ z ∂unitScorePairLaw, z.1 ∈ Ico (0 : ℝ) 1 :=
-    (Measure.quasiMeasurePreserving_fst (μ := unitScoreLaw)
-      (ν := unitScoreLaw)).ae hu
-  exact ae_all_iff.2 fun i ↦ (Measure.tendsto_eval_ae_ae
-    (μ := fun _ : {q : ScorePairIndex n // q.1 = q.2} ↦ unitScorePairLaw)
-    (i := ⟨(i,i), rfl⟩)).eventually hp
-
-private theorem lintegral_diagonal_exposure_le {n : ℕ} (hn : 0 < n) (μ : Matching n)
-    {d : DiagonalScorePairs n} (hg : d ∈ goodDiagonalScores n)
-    (hx : ∀ i, diagonalMale d i ∈ Ico (0 : ℝ) 1)
-    (hy : ∀ j, diagonalFemale d j ∈ Icc (0 : ℝ) 1)
-    (hδ₀ : 0 ≤ coexposureSuccessorPerturbation n)
-    (hδsmall : coexposureSuccessorPerturbation n ≤ 1 / Real.sqrt (n : ℝ))
-    (hA : 0 < 1 - 192 * (Real.log n) ^ 2 / n)
-    (hB : 0 < 1 - 24 * Real.log n / n)
-    (hδ : (1 - 192 * (Real.log n) ^ 2 / n)⁻¹ * (1 - 24 * Real.log n / n)⁻¹ ≤
-      1 + coexposureSuccessorPerturbation n)
-    (hrow : ∀ᵐ r ∂Measure.pi (stableScoreRowLaw d),
-      let x := (splitScorePairs μ).symm (d, (offDiagonalRowsEquiv n).symm r)
-      (∀ row, Function.Injective (x row)) ∧ IsScoreStable x μ) :
-    (∫⁻ r, (2 : ℝ≥0∞) ^ numExposedRotations
-      (profileOfScores ((splitScorePairs μ).symm (d, (offDiagonalRowsEquiv n).symm r))) μ
-        ∂(Measure.pi (stableScoreRowLaw d))) ≤
-      (∏ i, stableScoreRowLaw d i univ) *
-        ENNReal.ofReal (2 * Real.exp ((1 + 3 / 2) ^ 2 / 2) * Real.sqrt (n : ℝ)) := by
-  classical
-  let P := fun r : OffDiagonalScoreRows n ↦
-    profileOfScores ((splitScorePairs μ).symm (d, (offDiagonalRowsEquiv n).symm r))
-  let T := fun (i j : Fin n) ↦ if hij : i ≠ j then scoreRowSuccessorEvent d i ⟨j, hij⟩ else ∅
-  let w := fun j ↦ diagonalFemale d j / diagonalFemaleTotal d
-  have hs : 0 < diagonalFemaleTotal d := by linarith [hg.1]
-  have hw₀ (j : Fin n) : 0 ≤ w j := div_nonneg (hy j).1 hs.le
-  have hw : ∑ j, w j = 1 := by
-    simp only [w, ← Finset.sum_div]
-    exact div_self hs.ne'
-  have hP : Measurable P :=
-    (measurable_profileOfScores n).comp ((splitScorePairs μ).symm.measurable.comp
-      (measurable_const.prodMk (offDiagonalRowsEquiv n).symm.measurable))
-  have hvalid : ∀ᵐ r ∂Measure.pi (stableScoreRowLaw d), ∀ i j,
-      IsSuccessor (P r) μ i (μ j) → r i ∈ T i j := by
-    filter_upwards [hrow] with r hr i j hj
-    have hij : i ≠ j := fun h ↦ (lt_irrefl _) (h ▸ hj.eligible.1)
-    simpa only [T, dite_eq_left hij] using
-      scoreRowSuccessorEvent_of_isSuccessor_reconstructed μ d r i ⟨j, hij⟩ hr.2 hr.1 hj
-  have hmarg (i j : Fin n) (hij : i ≠ j) :
-      stableScoreRowLaw d i (T i j) ≤ stableScoreRowLaw d i univ *
-        (ENNReal.ofReal (1 + coexposureSuccessorPerturbation n) * ENNReal.ofReal (w j)) := by
-    rw [show T i j = scoreRowSuccessorEvent d i ⟨j, hij⟩ by simp only [T, dite_eq_left hij],
-      ← ENNReal.ofReal_mul (by linarith : 0 ≤ 1 + coexposureSuccessorPerturbation n)]
-    exact stableScoreRowLaw_successor_le_of_goodDiagonalScores hg hx hy hA hB hδ i ⟨j, hij⟩
-  refine (lintegral_pow_numExposedRotations_le_of_pi (stableScoreRowLaw d) P hP μ T _ _
-    hvalid hmarg).trans ?_
-  gcongr
-  exact coexposure_weighted_powerset_sum_le_sqrt_ennreal hn hw₀ hw hδ₀ hδsmall
-
-private theorem stableMass_eq_lintegral_rowMass {n : ℕ} (μ : Matching n) :
-    continuousScoreLaw n {x | IsScoreStable x μ} =
-      ∫⁻ d, (∏ i, stableScoreRowLaw d i univ) ∂diagonalScoreLaw n := by
-  have h := continuousScoreLaw_lintegral_stable_and_diagonal_rows μ
-    (C := univ) MeasurableSet.univ (f := fun _ ↦ 1) measurable_const
-  simpa only [mem_univ, and_true, Measure.restrict_univ, lintegral_one,
-    Measure.restrict_apply_univ, Measure.pi_univ] using h
-
-/-- The weighted stable-matching moment has the sharp square-root factor for
-the concrete all-good score event. -/
-theorem eventually_lintegral_goodScoreCoexposureWeight_le_sqrt :
-    ∃ C : ℝ, 0 ≤ C ∧ ∀ᶠ n : ℕ in atTop,
-      (∫⁻ x, scoreCoexposureWeight n (goodCoexposureScores n) x ∂(continuousScoreLaw n)) ≤
-        ENNReal.ofReal (C * (n : ℝ) ^ (1 / 2 : ℝ) * expectedNumStableMatchings n) := by
-  let C : ℝ := 2 * Real.exp ((1 + 3 / 2) ^ 2 / 2)
-  refine ⟨C, by dsimp [C]; positivity, ?_⟩
-  filter_upwards [eventually_coexposureSuccessorPerturbation_bounds] with n hn
-  rcases hn with ⟨hn, hδ₀, hδsmall, hA, hB, hδ⟩
-  rw [← Real.sqrt_eq_rpow, ENNReal.ofReal_mul (show 0 ≤ C * Real.sqrt (n : ℝ) by
-    dsimp [C]; positivity)]
-  let L := ENNReal.ofReal (C * Real.sqrt (n : ℝ))
-  refine lintegral_goodScoreCoexposureWeight_le_of_fixed_moment (L := L) ?_
-  intro μ
-  have hweight : Measurable
-      (fun x : ScoreProfile n ↦ (2 : ℝ≥0∞) ^ numExposedRotations (profileOfScores x) μ) :=
-    (show Measurable (fun p : Profile n ↦ (2 : ℝ≥0∞) ^ numExposedRotations p μ) from
-      fun _ _ ↦ MeasurableSpace.measurableSet_top).comp (measurable_profileOfScores n)
-  rw [show {x : ScoreProfile n | IsScoreStable x μ ∧ GoodSpouseScores x μ} =
-      {x | IsScoreStable x μ ∧ (splitScorePairs μ x).1 ∈ goodDiagonalScores n} by
-        ext x; exact and_congr_right fun _ ↦ (mem_goodDiagonalScores_iff x μ).symm,
-    continuousScoreLaw_lintegral_stable_and_diagonal_rows μ
-      (measurableSet_goodDiagonalScores n) hweight, stableMass_eq_lintegral_rowMass μ]
-  calc
-    _ ≤ ∫⁻ d in goodDiagonalScores n, (∏ i, stableScoreRowLaw d i univ) * L
-        ∂diagonalScoreLaw n := by
-      apply lintegral_mono_ae
-      filter_upwards [ae_restrict_mem (measurableSet_goodDiagonalScores n),
-        ae_restrict_of_ae (ae_diagonalMale_mem_Ico n),
-        ae_restrict_of_ae (ae_diagonalPairAt_mem_Icc n),
-        ae_restrict_of_ae (ae_diagonal_ae_stableRows μ)] with d hd hx hy hr
-      exact lintegral_diagonal_exposure_le hn μ hd hx (fun j ↦ (hy j).2)
-        hδ₀ hδsmall hA hB hδ hr
-    _ = (∫⁻ d in goodDiagonalScores n, ∏ i, stableScoreRowLaw d i univ ∂diagonalScoreLaw n) *
-        L := lintegral_mul_const' L _ ENNReal.ofReal_ne_top
-    _ ≤ (∫⁻ d, ∏ i, stableScoreRowLaw d i univ ∂diagonalScoreLaw n) * L := by
-      gcongr
-      exact Measure.restrict_le_self
-    _ = _ := mul_comm _ _
 
 end LennonPittelFormalization

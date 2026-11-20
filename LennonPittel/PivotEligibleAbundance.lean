@@ -125,13 +125,9 @@ theorem tendsto_measure_badShortStablePivot_of_perLength {E : ∀ n, Set (ScoreP
       ((tendsto_rpow_neg_atTop (by norm_num : (0 : ℝ) < 2)).comp
         tendsto_natCast_atTop_atTop)
   refine tendsto_const_nhds.squeeze' hzero (Eventually.of_forall fun _ ↦ zero_le) ?_
-  filter_upwards [hE, eventually_expectedNumStableMatchings_le_sizeLog,
-    eventually_gt_atTop (0 : ℕ)] with n h hn hnpos
+  filter_upwards [hE, eventually_expectedNumStableMatchings_le_sizeSq,
+    eventually_gt_atTop (0 : ℕ)] with n h hmean hnpos
   have hpos : 0 < (n : ℝ) := Nat.cast_pos.mpr hnpos
-  have hmean : expectedNumStableMatchings n ≤ (n : ℝ) ^ (2 : ℕ) := by
-    have hlog : Real.log (n : ℝ) ≤ n :=
-      (Real.log_le_sub_one_of_pos hpos).trans (by linarith)
-    simpa only [pow_two] using hn.trans (mul_le_mul_of_nonneg_left hlog hpos.le)
   refine h.trans ((mul_le_mul_left (ENNReal.ofReal_le_ofReal hmean) _).trans_eq ?_)
   rw [← ENNReal.ofReal_natCast, ← ENNReal.ofReal_mul hpos.le,
     ← ENNReal.ofReal_mul (by positivity)]

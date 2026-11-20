@@ -115,23 +115,13 @@ theorem lintegral_realizedReversePermutationCount_eq_compat_add_loss {n : ℕ}
 /-- The fixed score and mask bounds used by the unfiltered lower moment.
 They are separate from the additional bounds for the compatibility loss. -/
 structure ReverseUnfilteredControls {n : ℕ} (μ ρ : Matching n) (d : DiagonalScorePairs n)
-    (flag : OffDiagonalCellIndex n → Bool) (K : ℕ) (η : ℝ≥0∞) (m δ : ℝ) : Prop where
+    (flag : OffDiagonalCellIndex n → Bool) (K : ℕ) (η : ℝ≥0∞) : Prop where
   forbidden_weight : ∀ i,
     ∑ j ∈ forwardMaskForbiddenTargets μ flag i, reverseSpouseWeights μ d j ≤ η
   label_loss : ∀ k ∈ Finset.Icc 2 K,
     reverseGoodLabelLoss k (reverseSpouseWeights μ d) (ρ.support.map μ.toEmbedding) η ≤
       ENNReal.ofReal (1 / 4)
-  male_total_ge_two : 2 ≤ ∑ i, (diagonalPairAt d i).1
-  competitor_mass : ∀ i (q : ForwardInactiveColumnIndex flag i),
-    (∑ j, (diagonalPairAt d j).1) / 2 ≤
-      ∑ t : {t : ForwardInactiveColumnIndex flag i // t ≠ q},
-        (diagonalPairAt d t.val.val.val.val.1).1
-  male_max : ∀ i, (diagonalPairAt d i).1 ≤ m
-  arc_error : 14 * m / (∑ i, (diagonalPairAt d i).1) +
-    Real.exp (-(∑ i, (diagonalPairAt d i).1) / 4) ≤ δ
-  error_nonneg : 0 ≤ δ
-  error_le_one : δ ≤ 1
-  cumulative_error : (K : ℝ) * δ ≤ 1 / 4
+  cumulative_error : (K : ℝ) * reverseLowerArcError (∑ i, (diagonalPairAt d i).1) ≤ 1 / 4
 
 /-- The compatible realized collections at a prescribed support size. -/
 noncomputable def compatibleReverseSupportFamily {n : ℕ} (μ ρ : Matching n)
@@ -152,9 +142,9 @@ private theorem measurable_card_compatibleReverseSupportFamily {n : ℕ} (μ ρ 
 lower-moment margin remains when the compatibility loss fits its budget. -/
 theorem lintegral_card_compatibleReverseSupportFamily_ge {n K k : ℕ} (μ ρ : Matching n)
     (d : DiagonalScorePairs n) (flag : OffDiagonalCellIndex n → Bool)
-    (U : Set (ForwardRevealedMaleScores flag)) {a D m δ : ℝ} {η : ℝ≥0∞}
+    (U : Set (ForwardRevealedMaleScores flag)) {a D : ℝ} {η : ℝ≥0∞}
     (h : ReverseCompatibilityControls μ ρ d flag U a D)
-    (hlow : ReverseUnfilteredControls μ ρ d flag K η m δ) (hk : k ∈ Finset.Icc 2 K)
+    (hlow : ReverseUnfilteredControls μ ρ d flag K η) (hk : k ∈ Finset.Icc 2 K)
     (ha : 1 ≤ a)
     (hbudget : ENNReal.ofReal a ^ K * (K : ℝ≥0∞) *
       ENNReal.ofReal (a * D / ∑ i, (diagonalPairAt d i).1) ≤ ENNReal.ofReal (3 / 32)) :
@@ -170,12 +160,13 @@ theorem lintegral_card_compatibleReverseSupportFamily_ge {n K k : ℕ} (μ ρ : 
     (profileOfScores ((splitScorePairs μ).symm (d, z)))).card : ℝ≥0∞) ∂ν
   let B := ∑ σ ∈ S, ν (incompatibleReversePermutationEvent μ ρ σ d)
   have hk' := Finset.mem_Icc.mp hk
+  have hδ := reverseLowerArcError_mem_Icc h.male_total_pos.le
   have hkδ := (mul_le_mul_of_nonneg_right (Nat.cast_le.mpr hk'.2)
-    hlow.error_nonneg).trans hlow.cumulative_error
-  have hsurv := reverseSupportCoefficient_ge hlow.error_le_one hkδ (hlow.label_loss k hk)
+    hδ.1).trans hlow.cumulative_error
+  have hsurv := reverseSupportCoefficient_ge hδ.2 hkδ (hlow.label_loss k hk)
   have hunf := lintegral_realizedReverseSupportCount_fixedMask_ge μ d flag U h.measurable_reveal
     A hk'.1 η hlow.forbidden_weight h.female_nonneg h.female_lt_one h.male_mem
-    hlow.male_total_ge_two hlow.competitor_mass hlow.male_max hlow.arc_error hlow.error_le_one h.tie_free
+    h.male_total_pos h.tie_free
   have hmass : c = (forwardScoreMaskActiveMaleLaw d flag) U *
       (forwardScoreMaskInactiveColumnLaw d flag) univ :=
     forwardMaskRevealLaw_univ μ d flag U h.measurable_reveal h.female_nonneg h.female_lt_one h.tie_free
@@ -206,9 +197,9 @@ theorem lintegral_card_compatibleReverseSupportFamily_ge {n K k : ℕ} (μ ρ : 
 /-- The compatible first moment grows linearly in the support cutoff. -/
 theorem lintegral_sum_card_compatibleReverseSupportFamily_ge {n K : ℕ} (μ ρ : Matching n)
     (d : DiagonalScorePairs n) (flag : OffDiagonalCellIndex n → Bool)
-    (U : Set (ForwardRevealedMaleScores flag)) {a D m δ : ℝ} {η : ℝ≥0∞}
+    (U : Set (ForwardRevealedMaleScores flag)) {a D : ℝ} {η : ℝ≥0∞}
     (h : ReverseCompatibilityControls μ ρ d flag U a D)
-    (hlow : ReverseUnfilteredControls μ ρ d flag K η m δ) (ha : 1 ≤ a)
+    (hlow : ReverseUnfilteredControls μ ρ d flag K η) (ha : 1 ≤ a)
     (hbudget : ENNReal.ofReal a ^ K * (K : ℝ≥0∞) *
       ENNReal.ofReal (a * D / ∑ i, (diagonalPairAt d i).1) ≤ ENNReal.ofReal (3 / 32)) :
     (forwardMaskRevealLaw d flag U) univ * ENNReal.ofReal (3 / 32) * ((K - 1 : ℕ) : ℝ≥0∞) ≤

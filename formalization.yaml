@@ -46,7 +46,7 @@ sources:
     location: "SIAM Journal on Discrete Mathematics 2 (1989), 530–549"
     type: "paper"
     relationship: "background"
-    note: "The first-moment asymptotic is proved in the Lean development and used in the lower-tail proof."
+    note: "The Lean development proves Pittel's first-moment asymptotic separately. The lower-tail proof uses an upper bound of order n log n."
 
 related_formalizations:
   - id: "https://github.com/google-deepmind/formal-conjectures/commit/d2b6fdbe08ce4ca17d2c7f328f32c27115f5f6d6"
@@ -73,9 +73,9 @@ automation:
     - method: "agent"
       framework: "OpenAI Codex"
       tool_setup: >-
-        OpenAI Codex assisted with the Lean formalization of the proof. It also
-        assisted with porting the Lean code, preparing the submission package,
-        and reviewing the formalization.
+        OpenAI Codex assisted with the Lean formalization, including porting
+        the code, simplifying the row estimates, and checking the revised proof.
+        It also assisted with submission packaging and review.
   notes: >-
     Historical model versions, budgets, and prompt records for the original
     development remain unrecorded in this metadata.
@@ -91,13 +91,13 @@ fidelity:
 review:
   status: "agent-reviewed"
   notes: >-
-    Bo Cowgill reviewed the headline statement and submission metadata.
-    The agent review checked the statement and finite model against Lennon's
-    dissertation and confirmed that the headline signature matches Formal
-    Conjectures. A clean warning-strict Lean 4.35.0 build passed. The headline
-    theorem uses only propext, Classical.choice, and Quot.sound. Comparator
-    accepted the Challenge and Solution exports with Lean, NanoDa, and
-    con-ron on macOS in local-export mode with the sandbox disabled.
+    Bo Cowgill reviewed the headline statement and the metadata for the
+    earlier registered version. This revision preserves that statement and
+    finite model. The revised proof passed a warning-strict Lean 4.35.0
+    build. Its headline theorem uses only propext, Classical.choice, and
+    Quot.sound. Comparator checked the Challenge and Solution exports
+    with Lean, NanoDa, and con-ron on macOS in local-export mode with
+    Comparator's sandbox disabled.
 
 alignment:
   namespace: "LennonPittel"

@@ -152,14 +152,9 @@ theorem eventually_sum_measure_badForwardEndpointMark_le (q : ℝ) :
     ∀ᶠ n : ℕ in atTop, (∑ μ : Matching n, continuousScoreLaw n (badForwardEndpointMark μ)) ≤
       ENNReal.ofReal ((n : ℝ) ^ (-q)) := by
   filter_upwards [eventually_forwardEndpointSection_le (q + 2),
-    eventually_expectedNumStableMatchings_le_sizeLog, eventually_gt_atTop (1 : ℕ)]
+    eventually_expectedNumStableMatchings_le_sizeSq, eventually_gt_atTop (0 : ℕ)]
     with n hsec hmean hn
-  have hn₀ : 0 < (n : ℝ) := Nat.cast_pos.mpr (by omega)
-  have hlog : Real.log (n : ℝ) ≤ n :=
-    (Real.log_le_sub_one_of_pos hn₀).trans (by linarith)
-  have hmean' : expectedNumStableMatchings n ≤ (n : ℝ) ^ 2 := by
-    rw [sq]
-    exact hmean.trans (mul_le_mul_of_nonneg_left hlog hn₀.le)
+  have hn₀ : 0 < (n : ℝ) := Nat.cast_pos.mpr hn
   calc
     _ ≤ ∑ μ : Matching n, continuousScoreLaw n {x | IsScoreStable x μ} *
         ENNReal.ofReal ((n : ℝ) ^ (-(q + 2))) := Finset.sum_le_sum fun μ _ ↦
@@ -169,7 +164,7 @@ theorem eventually_sum_measure_badForwardEndpointMark_le (q : ℝ) :
         ENNReal.ofReal ((n : ℝ) ^ (-(q + 2))) := by
       rw [← Finset.sum_mul, sum_measure_scoreStable_eq_expected]
     _ ≤ ENNReal.ofReal ((n : ℝ) ^ (2 : ℕ)) * ENNReal.ofReal ((n : ℝ) ^ (-(q + 2))) :=
-      mul_le_mul' (ENNReal.ofReal_le_ofReal hmean') le_rfl
+      mul_le_mul' (ENNReal.ofReal_le_ofReal hmean) le_rfl
     _ = _ := by
       rw [← ENNReal.ofReal_mul (by positivity), ← Real.rpow_two, ← Real.rpow_add hn₀,
         show (2 : ℝ) + -(q + 2) = -q by ring]
@@ -203,8 +198,7 @@ theorem eventually_hasForwardReferenceDeficit_of_goodGeometry :
     ∀ᶠ n : ℕ in atTop, ∀ x ∈ goodForwardReferenceGeometry n, ∀ μ : Matching n,
       IsStable (profileOfScores x) μ →
       HasForwardReferenceDeficit (splitScorePairs μ x).1 (3 * (n : ℝ) ^ (-3 / 4 : ℝ)) := by
-  filter_upwards [eventually_hasForwardReferenceDeficit, eventually_gt_atTop (0 : ℕ)]
-    with n href hn
+  filter_upwards [eventually_hasForwardReferenceDeficit] with n href
   intro x hx μ hμ
   let d := (splitScorePairs μ x).1
   let xm (i : Fin n) := maleSpouseScore x μ i
@@ -247,9 +241,6 @@ theorem eventually_hasForwardReferenceDeficit_of_goodGeometry :
   · intro i
     rw [hmale i, hY]
     exact hg.2.2 i
-  · simp_rw [hw]
-    rw [Equiv.sum_comp μ (fun j ↦ (femaleSpouseScore x μ j / femaleSpouseTotal x μ) ^ 2)]
-    exact (spouseSquareWeights_of_goodPivotScoreGeometry hn hx.1 μ hμ).2
   · simp_rw [hw, hmale, hY]
     simpa only [forwardWeightedEndpointError, hY', yf, femaleSpouseByHusband, neg_mul] using he
 

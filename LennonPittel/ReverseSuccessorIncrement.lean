@@ -1,6 +1,7 @@
 module
 
 public import LennonPittel.PivotReverseRowLaw
+public import Mathlib.Analysis.SpecialFunctions.Gamma.Basic
 
 /-!
 # The first moment of a designated reverse-successor increment

@@ -232,9 +232,9 @@ most one quarter of the compatible margin. -/
 theorem lintegral_sum_card_filteredReverseSupportFamily_ge {n K : ℕ} (μ ρ : Matching n)
     (d : DiagonalScorePairs n) (flag : OffDiagonalCellIndex n → Bool)
     (U : Set (ForwardRevealedMaleScores flag)) (L : ℕ) (hL : 2 ≤ L) (hn : 0 < n)
-    {a D m δlow δ C : ℝ} {η : ℝ≥0∞}
+    {a D δ C : ℝ} {η : ℝ≥0∞}
     (h : ReverseCompatibilityControls μ ρ d flag U a D)
-    (hlow : ReverseUnfilteredControls μ ρ d flag K η m δlow)
+    (hlow : ReverseUnfilteredControls μ ρ d flag K η)
     (hu : ReverseFilterUpperControls d flag δ C) (ha : 1 ≤ a)
     (hbudget : ENNReal.ofReal a ^ K * (K : ℝ≥0∞) *
       ENNReal.ofReal (a * D / ∑ i, (diagonalPairAt d i).1) ≤ ENNReal.ofReal (3 / 32))

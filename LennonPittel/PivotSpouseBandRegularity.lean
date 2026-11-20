@@ -88,25 +88,21 @@ theorem eventually_measure_rankStableBadPivotMaskEvent_le (p : ℝ) :
       continuousScoreLaw n (rankStableBadPivotMaskEvent n) ≤
         ENNReal.ofReal ((n : ℝ) ^ (-p)) := by
   filter_upwards [eventually_sum_measure_badForwardMaskAnchorEvent_on_pivotBaseDiagonalBand_le
-      (p + 2), eventually_expectedNumStableMatchings_le_sizeLog,
-      eventually_gt_atTop (1 : ℕ)] with n h hm hn
+      (p + 2), eventually_expectedNumStableMatchings_le_sizeSq,
+      eventually_gt_atTop (0 : ℕ)] with n h hm hn
   let E (μ : Matching n) := badForwardMaskAnchorEvent μ (pivotBaseDiagonalBand n)
     ((n : ℝ) ^ (-11 / 20 : ℝ))
   have hsub : rankStableBadPivotMaskEvent n ≤ᵐ[continuousScoreLaw n] ⋃ μ, E μ := by
     filter_upwards [ae_injective_rows n] with x hx hbad
     obtain ⟨μ, hμ, hd, hb⟩ := hbad
     exact Set.mem_iUnion.mpr ⟨μ, (isStable_profileOfScores_iff hx μ).mp hμ, hd, hb⟩
-  have hn₀ : 0 < (n : ℝ) := by exact_mod_cast (show 0 < n by omega)
-  have hlog : Real.log (n : ℝ) ≤ n := (Real.log_le_sub_one_of_pos hn₀).trans (by linarith)
-  have hm' : expectedNumStableMatchings n ≤ (n : ℝ) ^ 2 := by
-    rw [sq]
-    exact hm.trans (mul_le_mul_of_nonneg_left hlog hn₀.le)
+  have hn₀ : 0 < (n : ℝ) := Nat.cast_pos.mpr hn
   refine (measure_mono_ae hsub).trans ((measure_iUnion_le _).trans ?_)
   rw [tsum_fintype]
   refine h.trans ?_
   calc
     _ ≤ ENNReal.ofReal ((n : ℝ) ^ (2 : ℕ)) * ENNReal.ofReal ((n : ℝ) ^ (-(p + 2))) :=
-      mul_le_mul_left (ENNReal.ofReal_le_ofReal hm') _
+      mul_le_mul_left (ENNReal.ofReal_le_ofReal hm) _
     _ = _ := by
       rw [← ENNReal.ofReal_mul (by positivity), ← Real.rpow_two, ← Real.rpow_add hn₀,
         show (2 : ℝ) + -(p + 2) = -p by ring]
@@ -157,8 +153,7 @@ This does not assert abundance of singleton pivots in the band. -/
 theorem tendsto_measure_badPivotBaseGeometry_zero :
     Tendsto (fun n ↦ continuousScoreLaw n (goodPivotBaseGeometry n)ᶜ) atTop (𝓝 0) := by
   have hcoex := tendsto_measure_badCoexposureScores_zero_of_mean_upper
-    (C := 1) zero_le_one
-    (by simpa only [one_mul] using eventually_expectedNumStableMatchings_le_sizeLog)
+    meanUpperConstant_nonneg eventually_expectedNumStableMatchings_le_meanUpper
   have hrate : Tendsto (fun n : ℕ ↦ ENNReal.ofReal ((n : ℝ) ^ (-(1 : ℝ)))) atTop (𝓝 0) := by
     simp only [Real.rpow_neg_one]
     simpa only [ENNReal.ofReal_zero, one_div] using

@@ -2,6 +2,8 @@ module
 
 public import Mathlib.Analysis.SpecialFunctions.Pow.Real
 public import Mathlib.Analysis.SpecificLimits.Basic
+public import Mathlib.Data.Nat.Choose.Sum
+public import Mathlib.Algebra.BigOperators.Intervals
 public import Mathlib.Data.Nat.Factorial.BigOperators
 public import Mathlib.NumberTheory.Harmonic.Bounds
 
@@ -10,7 +12,8 @@ public import Mathlib.NumberTheory.Harmonic.Bounds
 
 The size kernel is the factorial-ratio envelope in the two-matching estimate,
 without the common factor proportional to one plus the logarithm of the market size.
-The results here use only the bound on each size, not the score law that produces it.
+In each row its normalized weights give the distribution of the minimum of a uniform
+subset. The row mass and first moment control all three size sums.
 -/
 
 @[expose] public section
@@ -92,187 +95,213 @@ theorem twoStablePairSizeKernel_eq_beta_factors {n u v : ℕ} (h : ValidPairSize
       rw [cast_factorial_pred hn]
       field_simp
 
-/-- Sampling without replacement stays below the corresponding independent power. -/
-private theorem descFactorial_ratio_le_pow {n m v : ℕ} (hmn : m ≤ n) (hvm : v ≤ m) :
-    ((m.descFactorial v : ℕ) : ℝ) / ↑(n.descFactorial v) ≤ ((m : ℝ) / n) ^ v := by
-  simp only [Nat.descFactorial_eq_prod_range, Nat.cast_prod, ← prod_div_distrib]
-  calc
-    _ ≤ ∏ _i ∈ range v, (m : ℝ) / n := by
-      refine prod_le_prod₀ (fun i _ ↦ by positivity) fun i hi ↦ ?_
-      have him : i ≤ m := by have := mem_range.mp hi; omega
-      have hin : i < n := by have := mem_range.mp hi; omega
-      have hn : (0 : ℝ) < n := by exact_mod_cast (show 0 < n by omega)
-      have hsub : (0 : ℝ) < (n : ℝ) - i := sub_pos.mpr (by exact_mod_cast hin)
-      rw [Nat.cast_sub him, Nat.cast_sub hin.le]
-      apply (div_le_div_iff₀ hsub hn).2
-      have hmul := mul_le_mul_of_nonneg_right (show (m : ℝ) ≤ n by exact_mod_cast hmn)
-        (show (0 : ℝ) ≤ i by positivity)
-      nlinarith only [hmul]
-    _ = _ := by simp [div_pow]
+private theorem cast_choose_eq_factorial_div {a b : ℕ} (h : b ≤ a) :
+    (a.choose b : ℝ) = (a.factorial : ℝ) / (b.factorial * ((a - b).factorial : ℝ)) := by
+  apply (eq_div_iff (by positivity)).2
+  rw [← mul_assoc]
+  exact_mod_cast Nat.choose_mul_factorial_mul_factorial h
 
-/-- For central sizes the factorial-ratio bound is controlled by an exponential. -/
-theorem twoStablePairSizeKernel_le_central {n u v : ℕ} (hn : 0 < n) (h : u + v ≤ n)
-    (hu : 2 * u ≤ n) (hv : 2 * v ≤ n) :
-    twoStablePairSizeKernel n (u, v) ≤ 4 * n * Real.exp (-(u : ℝ) * v / n) := by
-  have hn' : 0 < (n : ℝ) := by exact_mod_cast hn
-  have hun : u ≤ n := by omega
-  have hvn : v ≤ n := by omega
-  have hup : (n : ℝ) / 2 ≤ n - u := by
-    have h' : (2 : ℝ) * u ≤ n := by exact_mod_cast hu
-    linarith
-  have hvp : (n : ℝ) / 2 ≤ n - v := by
-    have h' : (2 : ℝ) * v ≤ n := by exact_mod_cast hv
-    linarith
-  unfold twoStablePairSizeKernel
-  rw [Nat.cast_sub hun, Nat.cast_sub hvn]
-  refine mul_le_mul ?_ ?_ (by positivity) (by positivity)
-  · calc
-      _ ≤ (n : ℝ) ^ 3 / ((n / 2) * (n / 2)) :=
-        div_le_div_of_nonneg_left (by positivity) (by positivity)
-          (mul_le_mul hup hvp (by positivity) (by linarith))
-      _ = _ := by field_simp; ring
-  · calc
-      _ ≤ ((↑(n - u) : ℝ) / n) ^ v :=
-        descFactorial_ratio_le_pow (Nat.sub_le n u) (by omega)
-      _ = (1 - (u : ℝ) / n) ^ v := by rw [Nat.cast_sub hun, sub_div, div_self hn'.ne']
-      _ ≤ Real.exp (-(u : ℝ) * v / n) := by
-        have hnon : 0 ≤ 1 - (u : ℝ) / n :=
-          sub_nonneg.mpr ((div_le_iff₀ hn').2
-            (by simpa using (Nat.cast_le.mpr hun : (u : ℝ) ≤ n)))
-        calc
-          _ ≤ Real.exp (-(u : ℝ) / n) ^ v := by
-            apply pow_le_pow_left₀ hnon
-            simpa only [neg_div] using Real.one_sub_le_exp_neg ((u : ℝ) / n)
-          _ = _ := by rw [← Real.exp_nat_mul]; congr 1; ring
+/-- In row `u`, the kernel is the mass function of the minimum of a uniform
+`u`-subset of the first `n - 1` labels, scaled by `n²/u`. -/
+theorem twoStablePairSizeKernel_eq_choose {n u v : ℕ} (hu : 1 ≤ u) (hv : 1 ≤ v)
+    (hs : u + v ≤ n) :
+    twoStablePairSizeKernel n (u, v) =
+      (n : ℝ) ^ 2 / (u : ℝ) / ((n - 1).choose u : ℝ) *
+        ((n - v - 1).choose (u - 1) : ℝ) := by
+  change (n : ℝ) ^ 3 / ((n - u : ℕ) * ((n - v : ℕ) : ℝ)) *
+    (((n - u).descFactorial v : ℝ) / (n.descFactorial v : ℝ)) = _
+  rw [cast_descFactorial_eq_div (show v ≤ n - u by omega),
+    cast_descFactorial_eq_div (show v ≤ n by omega),
+    cast_choose_eq_factorial_div (show u ≤ n - 1 by omega),
+    cast_choose_eq_factorial_div (show u - 1 ≤ n - v - 1 by omega),
+    show n - 1 - u = n - u - 1 by omega,
+    show n - v - 1 - (u - 1) = n - u - v by omega,
+    cast_factorial_pred (show 0 < n - u by omega),
+    cast_factorial_pred (show 0 < n - v by omega),
+    cast_factorial_pred (show 0 < n by omega),
+    cast_factorial_pred hu]
+  have hnu : 0 < n - u := by omega
+  have hnv : 0 < n - v := by omega
+  field_simp
 
-private theorem sum_pow_Icc_le {q : ℝ} (hq₀ : 0 ≤ q) (hq₁ : q < 1) (l m : ℕ) :
-    (∑ j ∈ Icc l m, q ^ j) ≤ q ^ l / (1 - q) := by
+private theorem sum_row_choose_from {n u a : ℕ} (hu : 1 ≤ u) (ha : a ≤ n - u)
+    (hun : u ≤ n) :
+    (∑ v ∈ Icc a (n - u), (n - v - 1).choose (u - 1)) = (n - a).choose u := by
   calc
-    _ = ∑ j ∈ range (m + 1 - l), q ^ (l + j) := by
-      refine sum_bij (fun j _ ↦ j - l) ?_ ?_ ?_ ?_
-      · intro j hj
-        simp only [mem_Icc] at hj
-        exact mem_range.mpr (by omega)
-      · intro a ha b hb hab
-        change a - l = b - l at hab
-        simp only [mem_Icc] at ha hb
-        omega
-      · intro j hj
-        have := mem_range.mp hj
-        refine ⟨l + j, mem_Icc.mpr (by omega), ?_⟩
-        omega
-      · intro j hj
-        rw [Nat.add_sub_of_le (mem_Icc.mp hj).1]
-    _ = q ^ l * ∑ j ∈ range (m + 1 - l), q ^ j := by simp_rw [pow_add, mul_sum]
-    _ ≤ q ^ l * ∑' j : ℕ, q ^ j := mul_le_mul_of_nonneg_left
-      ((summable_geometric_of_lt_one hq₀ hq₁).sum_le_tsum _ (fun _ _ ↦ by positivity))
-      (by positivity)
-    _ = _ := by rw [tsum_geometric_of_lt_one hq₀ hq₁, div_eq_mul_inv]
+    _ = ∑ j ∈ Icc (u - 1) (n - a - 1), j.choose (u - 1) := by
+      refine sum_nbij' (fun v ↦ n - v - 1) (fun j ↦ n - j - 1) ?_ ?_ ?_ ?_ (fun _ _ ↦ rfl)
+        <;> intro i hi <;> simp only [mem_Icc] at * <;> omega
+    _ = _ := by rw [Nat.sum_Icc_choose]; congr 1 <;> omega
 
-private theorem sum_exp_neg_mul_Icc_le {a : ℝ} (ha : 0 < a) (m : ℕ) :
-    (∑ j ∈ Icc 1 m, Real.exp (-a * (j : ℝ))) ≤ a⁻¹ := by
-  let q := Real.exp (-a)
-  have hq₀ : 0 ≤ q := Real.exp_nonneg _
-  have hq₁ : q < 1 := Real.exp_lt_one_iff.mpr (neg_lt_zero.mpr ha)
-  have hqmul : q * (a + 1) ≤ 1 := by
-    dsimp [q]
-    rw [Real.exp_neg, ← div_eq_inv_mul]
-    apply (div_le_iff₀ (Real.exp_pos a)).2
-    simpa only [one_mul] using Real.add_one_le_exp a
+private theorem sum_row_choose {n u : ℕ} (hu : 1 ≤ u) (hun : u < n) :
+    (∑ v ∈ Icc 1 (n - u), (n - v - 1).choose (u - 1)) = (n - 1).choose u :=
+  sum_row_choose_from hu (by omega) hun.le
+
+private theorem sum_mul_row_choose {n u : ℕ} (hu : 1 ≤ u) (hun : u < n) :
+    (∑ v ∈ Icc 1 (n - u), v * (n - v - 1).choose (u - 1)) = n.choose (u + 1) := by
+  have h := sum_Ico_Ico_comm 1 (n - u + 1) (fun _ v ↦ (n - v - 1).choose (u - 1))
+  simp only [Ico_add_one_right_eq_Icc, sum_const, Nat.card_Icc, nsmul_eq_mul,
+    Nat.add_sub_cancel, Nat.cast_id] at h
+  rw [← h]
   calc
-    _ = ∑ j ∈ Icc 1 m, q ^ j := by
-      refine sum_congr rfl fun j _ ↦ ?_
-      rw [← Real.exp_nat_mul]
-      congr 1
+    _ = ∑ i ∈ Icc 1 (n - u), (n - i).choose u := by
+      exact sum_congr rfl fun i hi ↦ sum_row_choose_from hu (mem_Icc.mp hi).2 hun.le
+    _ = n.choose (u + 1) := by
+      have h' := sum_row_choose (n := n + 1) (u := u + 1) (by omega) (by omega)
+      simpa only [Nat.add_sub_add_right, Nat.add_sub_cancel, Nat.sub_sub] using h'
+
+/-- The full row of the size kernel sums to the harmonic weight. -/
+theorem sum_twoStablePairSizeKernel_row {n u : ℕ} (hu : 1 ≤ u) (hun : u < n) :
+    (∑ v ∈ Icc 1 (n - u), twoStablePairSizeKernel n (u, v)) = (n : ℝ)^2 / u := by
+  have hpos : 0 < ((n - 1).choose u : ℝ) := by
+    exact_mod_cast Nat.choose_pos (by omega : u ≤ n - 1)
+  calc
+    _ = ((n : ℝ)^2 / u / ((n - 1).choose u : ℝ)) *
+        ∑ v ∈ Icc 1 (n-u), ((n-v-1).choose (u-1) : ℝ) := by
+      rw [mul_sum]
+      exact sum_congr rfl fun v hv ↦ twoStablePairSizeKernel_eq_choose hu (mem_Icc.mp hv).1
+        (by have := (mem_Icc.mp hv).2; omega)
+    _ = _ := by rw [← Nat.cast_sum, sum_row_choose hu hun, div_mul_cancel₀ _ hpos.ne']
+
+/-- The first moment of the row is the harmonic weight times the expected
+minimum of a uniform subset of size `u` of `n - 1` labels. -/
+theorem sum_mul_twoStablePairSizeKernel_row {n u : ℕ} (hu : 1 ≤ u) (hun : u < n) :
+    (∑ v ∈ Icc 1 (n-u), (v : ℝ) * twoStablePairSizeKernel n (u,v)) =
+      (n : ℝ)^3 / ((u : ℝ) * (u+1)) := by
+  have hpos : 0 < ((n - 1).choose u : ℝ) := by
+    exact_mod_cast Nat.choose_pos (by omega : u ≤ n - 1)
+  have hchoose : (n:ℝ) * ((n-1).choose u : ℝ) = (n.choose (u+1) : ℝ) * (u+1) := by
+    exact_mod_cast (show n * (n-1).choose u = n.choose (u+1) * (u+1) by
+      simpa only [Nat.sub_add_cancel (by omega : 1 ≤ n)] using Nat.add_one_mul_choose_eq (n-1) u)
+  calc
+    _ = ((n : ℝ)^2 / u / ((n-1).choose u : ℝ)) *
+        ∑ v ∈ Icc 1 (n-u), ((v * (n-v-1).choose (u-1) : ℕ) : ℝ) := by
+      rw [mul_sum]
+      refine sum_congr rfl fun v hv ↦ ?_
+      rw [twoStablePairSizeKernel_eq_choose hu (mem_Icc.mp hv).1
+        (by have := (mem_Icc.mp hv).2; omega : u+v ≤ n), Nat.cast_mul]
       ring
-    _ ≤ q ^ 1 / (1 - q) := sum_pow_Icc_le hq₀ hq₁ _ _
-    _ ≤ a⁻¹ := by
-      rw [pow_one, ← one_div a]
-      apply (div_le_div_iff₀ (sub_pos.mpr hq₁) ha).2
-      linarith only [hqmul]
+    _ = _ := by
+      rw [← Nat.cast_sum, sum_mul_row_choose hu hun]
+      have hu' : (0:ℝ) < u := by exact_mod_cast hu
+      field_simp
+      linear_combination (n:ℝ)^2 * hchoose.symm
 
-/-- In the central range both sizes are at most half the number of labels. -/
-def CentralPairSizes (n : ℕ) (p : ℕ × ℕ) : Prop :=
-  2 * p.1 ≤ n ∧ 2 * p.2 ≤ n
+private theorem sum_by_row_le {n : ℕ} (s : Finset (ℕ × ℕ))
+    (hs : ∀ p ∈ s, ValidPairSizes n p) (t : Finset ℕ) (ht : ∀ p ∈ s, p.1 ∈ t)
+    (g : ℕ → ℝ) (hg : ∀ u ∈ t, 0 ≤ g u)
+    (hrow : ∀ u ∈ t, 2 ≤ u → u + 2 ≤ n →
+      (∑ p ∈ s.filter (fun p ↦ p.1 = u), twoStablePairSizeKernel n p) ≤ g u) :
+    (∑ p ∈ s, twoStablePairSizeKernel n p) ≤ ∑ u ∈ t, g u := by
+  rw [← sum_fiberwise_of_maps_to ht]
+  refine sum_le_sum fun u hu ↦ ?_
+  by_cases he : s.filter (fun p ↦ p.1 = u) = ∅
+  · simpa [he] using hg u hu
+  obtain ⟨p, hp⟩ := nonempty_iff_ne_empty.mpr he
+  obtain ⟨hps, hpu⟩ := mem_filter.mp hp
+  obtain ⟨h₁,h₂,h₃⟩ := hs p hps
+  subst u
+  exact hrow _ hu h₁ (by omega)
+
+private theorem sum_fiber_le_of_row {n u : ℕ} (s : Finset (ℕ × ℕ))
+    (hs : ∀ p ∈ s, ValidPairSizes n p) (f : ℕ → ℝ) (hf : ∀ v, 0 ≤ f v)
+    (h : ∀ p ∈ s, p.1 = u → twoStablePairSizeKernel n p ≤ f p.2) :
+    (∑ p ∈ s.filter (fun p ↦ p.1 = u), twoStablePairSizeKernel n p) ≤
+      ∑ v ∈ Icc 1 (n-u), f v := by
+  let row := s.filter (fun p ↦ p.1 = u)
+  have hbox : row ⊆ {u} ×ˢ Icc 1 (n-u) := by
+    intro p hp
+    obtain ⟨hps, hu⟩ := mem_filter.mp hp
+    obtain ⟨_, hv, hn⟩ := hs p hps
+    exact mem_product.mpr ⟨mem_singleton.mpr hu, mem_Icc.mpr ⟨by omega, by omega⟩⟩
+  calc
+    _ ≤ ∑ p ∈ row, f p.2 := sum_le_sum fun p hp ↦ h p (mem_filter.mp hp).1 (mem_filter.mp hp).2
+    _ ≤ ∑ p ∈ {u} ×ˢ Icc 1 (n-u), f p.2 := sum_le_sum_of_subset_of_nonneg hbox (fun p _ _ ↦ hf p.2)
+    _ = _ := by rw [sum_product, sum_singleton]
 
 private theorem sum_inv_Icc_le_log (m : ℕ) :
     (∑ v ∈ Icc 1 m, (v : ℝ)⁻¹) ≤ 1 + Real.log m := by
   simpa only [harmonic_eq_sum_Icc, Rat.cast_sum, Rat.cast_inv, Rat.cast_natCast]
     using harmonic_le_one_add_log m
 
-/-- Central pairs with right orientation size at most the cutoff pay one harmonic sum. -/
-theorem sum_twoStablePairSizeKernel_le_central_right {n m : ℕ} (hn : 0 < n)
-    (s : Finset (ℕ × ℕ)) (hs : ∀ p ∈ s, ValidPairSizes n p)
-    (hc : ∀ p ∈ s, CentralPairSizes n p) (hm : ∀ p ∈ s, p.2 ≤ m) :
-    (∑ p ∈ s, twoStablePairSizeKernel n p) ≤
-      4 * (n : ℝ) ^ 2 * (1 + Real.log m) := by
-  have hbox : s ⊆ Icc 1 n ×ˢ Icc 1 m := by
-    intro p hp
-    obtain ⟨hu, hv, huv⟩ := hs p hp
-    exact mem_product.mpr ⟨mem_Icc.mpr ⟨by omega, by omega⟩,
-      mem_Icc.mpr ⟨by omega, hm p hp⟩⟩
+/-- A set of pairs costs at most the harmonic mass of its first coordinates. -/
+theorem sum_twoStablePairSizeKernel_le_rows {n : ℕ} (s : Finset (ℕ × ℕ))
+    (hs : ∀ p ∈ s, ValidPairSizes n p) (U : Finset ℕ) (hU : ∀ p ∈ s, p.1 ∈ U) :
+    (∑ p ∈ s, twoStablePairSizeKernel n p) ≤ (n : ℝ)^2 * ∑ u ∈ U, (u : ℝ)⁻¹ := by
   calc
-    _ ≤ ∑ p ∈ s, 4 * n * Real.exp (-(p.1 : ℝ) * p.2 / n) :=
-      sum_le_sum fun p hp ↦ twoStablePairSizeKernel_le_central hn
-        (hs p hp).2.2 (hc p hp).1 (hc p hp).2
-    _ ≤ ∑ p ∈ Icc 1 n ×ˢ Icc 1 m, 4 * n * Real.exp (-(p.1 : ℝ) * p.2 / n) :=
-      sum_le_sum_of_subset_of_nonneg hbox (fun _ _ _ ↦ by positivity)
-    _ = ∑ v ∈ Icc 1 m, 4 * n * ∑ u ∈ Icc 1 n, Real.exp (-((v : ℝ) / n) * u) := by
-      rw [sum_product_right]
-      refine sum_congr rfl fun v _ ↦ ?_
-      rw [mul_sum]
-      refine sum_congr rfl fun u _ ↦ ?_
-      ring_nf
-    _ ≤ ∑ v ∈ Icc 1 m, 4 * n * ((v : ℝ) / n)⁻¹ := by
-      refine sum_le_sum fun v hv ↦ mul_le_mul_of_nonneg_left (sum_exp_neg_mul_Icc_le ?_ n)
-        (by positivity)
-      have hvp : 0 < v := by have := (mem_Icc.mp hv).1; omega
-      positivity
-    _ = 4 * (n : ℝ) ^ 2 * ∑ v ∈ Icc 1 m, (v : ℝ)⁻¹ := by
-      rw [mul_sum]
-      refine sum_congr rfl fun v _ ↦ ?_
-      rw [inv_div]
-      ring
-    _ ≤ _ := mul_le_mul_of_nonneg_left (sum_inv_Icc_le_log m) (by positivity)
+    _ ≤ ∑ u ∈ U, (n : ℝ)^2 / u := by
+      apply sum_by_row_le s hs U hU _ (fun _ _ ↦ by positivity)
+      intro u _ hu hun
+      rw [← sum_twoStablePairSizeKernel_row (by omega : 1 ≤ u) (by omega : u < n)]
+      exact sum_fiber_le_of_row s hs _ (fun v ↦ twoStablePairSizeKernel_nonneg n (u,v))
+        (by rintro ⟨_,v⟩ _ rfl; exact le_rfl)
+    _ = _ := by simp [div_eq_mul_inv, mul_sum]
 
-/-- Central pairs with product at least n times z pay an exponential factor. -/
-theorem sum_twoStablePairSizeKernel_le_central_large_product {n : ℕ} (hn : 0 < n)
-    (s : Finset (ℕ × ℕ)) (hs : ∀ p ∈ s, ValidPairSizes n p)
-    (hc : ∀ p ∈ s, CentralPairSizes n p) (z : ℝ)
-    (hz : ∀ p ∈ s, z ≤ (p.1 : ℝ) * p.2 / n) :
-    (∑ p ∈ s, twoStablePairSizeKernel n p) ≤ 4 * (n : ℝ) ^ 3 * Real.exp (-z) := by
-  have hbox : s ⊆ Icc 1 n ×ˢ Icc 1 n := by
-    intro p hp
-    obtain ⟨hu, hv, huv⟩ := hs p hp
-    exact mem_product.mpr ⟨mem_Icc.mpr ⟨by omega, by omega⟩,
-      mem_Icc.mpr ⟨by omega, by omega⟩⟩
+/-- The full size sum costs a single harmonic sum. -/
+theorem sum_twoStablePairSizeKernel_le_total {n : ℕ} (_hn : 0 < n) (s : Finset (ℕ × ℕ))
+    (hs : ∀ p ∈ s, ValidPairSizes n p) :
+    (∑ p ∈ s, twoStablePairSizeKernel n p) ≤ (n : ℝ)^2 * (1 + Real.log n) := by
   calc
-    _ ≤ ∑ _p ∈ s, 4 * n * Real.exp (-z) := by
-      refine sum_le_sum fun p hp ↦ (twoStablePairSizeKernel_le_central hn
-        (hs p hp).2.2 (hc p hp).1 (hc p hp).2).trans ?_
-      gcongr
-      simpa only [neg_mul, neg_div] using neg_le_neg (hz p hp)
-    _ ≤ ∑ _p ∈ Icc 1 n ×ˢ Icc 1 n, 4 * n * Real.exp (-z) :=
-      sum_le_sum_of_subset_of_nonneg hbox (fun _ _ _ ↦ by positivity)
-    _ = _ := by
-      rw [sum_const, card_product]
-      simp only [Nat.card_Icc, Nat.add_sub_cancel, nsmul_eq_mul, Nat.cast_mul]
-      ring
+    _ ≤ (n : ℝ)^2 * ∑ u ∈ Icc 1 n, (u : ℝ)⁻¹ :=
+      sum_twoStablePairSizeKernel_le_rows s hs _ fun p hp ↦
+        mem_Icc.mpr ⟨by have := (hs p hp).1; omega, (Nat.le_add_right _ _).trans (hs p hp).2.2⟩
+    _ ≤ (n : ℝ)^2 * (1 + Real.log n) :=
+      mul_le_mul_of_nonneg_left (sum_inv_Icc_le_log n) (sq_nonneg _)
 
-/-- The central sector with product at least three times n log n has kernel mass at most four. -/
-theorem sum_twoStablePairSizeKernel_le_central_log_product {n : ℕ} (hn : 0 < n)
-    (s : Finset (ℕ × ℕ)) (hs : ∀ p ∈ s, ValidPairSizes n p)
-    (hc : ∀ p ∈ s, CentralPairSizes n p)
-    (hz : ∀ p ∈ s, 3 * Real.log n ≤ (p.1 : ℝ) * p.2 / n) :
-    (∑ p ∈ s, twoStablePairSizeKernel n p) ≤ 4 := by
-  have hn' : 0 < (n : ℝ) := by exact_mod_cast hn
+private theorem sum_row_reciprocals {k n : ℕ} (hk : 0 < k) :
+    (∑ u ∈ Icc k n, 1 / ((u : ℝ) * (u + 1))) ≤ 1 / (k : ℝ) := by
+  by_cases hkn : k ≤ n
+  · let f (j : ℕ) : ℝ := -(1 / (j : ℝ))
+    calc
+      _ = ∑ u ∈ Icc k n, (f (u + 1) - f u) := by
+        refine sum_congr rfl fun u hu ↦ ?_
+        have hu' : 0 < (u : ℝ) := Nat.cast_pos.mpr (lt_of_lt_of_le hk (mem_Icc.mp hu).1)
+        dsimp [f]
+        push_cast
+        field_simp
+        ring
+      _ = f (n + 1) - f k := sum_Icc_sub hkn f
+      _ ≤ _ := by dsimp [f]; linarith [show 0 ≤ 1 / ((n + 1 : ℕ) : ℝ) by positivity]
+  · rw [Icc_eq_empty_of_lt (lt_of_not_ge hkn), sum_empty]
+    positivity
+
+/-- Pairs with both sizes at least a square-root cutoff have quadratic mass. -/
+theorem sum_twoStablePairSizeKernel_le_both_long {n : ℕ} (hn : 0 < n)
+    (s : Finset (ℕ × ℕ)) (hs : ∀ p ∈ s, ValidPairSizes n p) {b : ℝ} (hb : 0 < b)
+    (hl : ∀ p ∈ s, b * Real.sqrt n ≤ (p.1 : ℝ) ∧ b * Real.sqrt n ≤ (p.2 : ℝ)) :
+    (∑ p ∈ s, twoStablePairSizeKernel n p) ≤ (n : ℝ) ^ 2 / b ^ 2 := by
+  let k := ⌈b * Real.sqrt n⌉₊
+  have hn' : (0 : ℝ) < n := Nat.cast_pos.mpr hn
+  have hcut : 0 < b * Real.sqrt n := mul_pos hb (Real.sqrt_pos.mpr hn')
+  have hle : b * Real.sqrt n ≤ (k : ℝ) := Nat.le_ceil _
+  have hk : (0 : ℝ) < k := hcut.trans_le hle
+  have hrow (u : ℕ) (hu : 2 ≤ u) (hun : u+2 ≤ n) :
+      (∑ p ∈ s.filter (fun p ↦ p.1 = u), twoStablePairSizeKernel n p) ≤
+        (n : ℝ)^3 / k * (1 / ((u : ℝ) * (u + 1))) := by
+    calc
+      _ ≤ ∑ v ∈ Icc 1 (n-u), ((v : ℝ) * twoStablePairSizeKernel n (u,v)) / k := by
+        apply sum_fiber_le_of_row s hs _ (fun v ↦ div_nonneg
+          (mul_nonneg (Nat.cast_nonneg _) (twoStablePairSizeKernel_nonneg _ _)) hk.le)
+        rintro ⟨u',v⟩ hp rfl
+        apply (le_div_iff₀ hk).2
+        have hv : k ≤ v := Nat.ceil_le.mpr (hl _ hp).2
+        simpa only [mul_comm] using mul_le_mul_of_nonneg_right
+          (Nat.cast_le.mpr hv : (k : ℝ) ≤ v) (twoStablePairSizeKernel_nonneg n (u',v))
+      _ = _ := by rw [← sum_div, sum_mul_twoStablePairSizeKernel_row (by omega : 1 ≤ u) (by omega : u < n)]; ring
   calc
-    _ ≤ 4 * (n : ℝ) ^ 3 * Real.exp (-(3 * Real.log n)) :=
-      sum_twoStablePairSizeKernel_le_central_large_product hn s hs hc _ hz
-    _ = _ := by
-      rw [Real.exp_neg, ← show ((3 : ℕ) : ℝ) = 3 by norm_num,
-        Real.exp_nat_mul, Real.exp_log hn']
-      field_simp
+    _ ≤ ∑ u ∈ Icc k n, (n : ℝ)^3 / k * (1 / ((u : ℝ) * (u + 1))) := by
+      apply sum_by_row_le s hs (Icc k n) _ _ (fun _ _ ↦ by positivity)
+        (fun u _ ↦ hrow u)
+      intro p hp
+      exact mem_Icc.mpr ⟨Nat.ceil_le.mpr (hl p hp).1,
+        (Nat.le_add_right _ _).trans (hs p hp).2.2⟩
+    _ ≤ (n : ℝ)^3 / k * (1 / (k : ℝ)) := by
+      rw [← mul_sum]
+      exact mul_le_mul_of_nonneg_left (sum_row_reciprocals (Nat.cast_pos.mp hk)) (by positivity)
+    _ = (n : ℝ)^3 / (k : ℝ)^2 := by ring
+    _ ≤ (n : ℝ)^3 / (b * Real.sqrt n)^2 :=
+      div_le_div_of_nonneg_left (by positivity) (by positivity) (pow_le_pow_left₀ hcut.le hle _)
+    _ = _ := by rw [mul_pow, Real.sq_sqrt hn'.le]; field_simp
 
 private theorem sum_le_filtered_cover {α : Type*} (s : Finset α) (f : α → ℝ)
     (P Q : α → Prop) [DecidablePred P] [DecidablePred Q]
@@ -313,346 +342,87 @@ private theorem validPairSizes_swap {n : ℕ} {p : ℕ × ℕ} (h : ValidPairSiz
     ValidPairSizes n p.swap := by
   exact ⟨h.2.1, h.1, by simpa [add_comm] using h.2.2⟩
 
-private theorem centralPairSizes_swap {n : ℕ} {p : ℕ × ℕ} (h : CentralPairSizes n p) :
-    CentralPairSizes n p.swap :=
-  ⟨h.2, h.1⟩
+private theorem sum_inv_outside_orientation_interval_le {n L : ℕ}
+    (ht : 1 ≤ Real.log (n : ℝ)) (hLt : (L : ℝ) ≤ Real.log (n : ℝ)) :
+    (∑ u ∈ (Icc 1 n).filter (fun u : ℕ ↦ u < L ∨ n / (Real.log (n : ℝ)) ^ 3 < (u : ℝ)),
+      (u : ℝ)⁻¹) ≤ 2 + 4 * Real.log (Real.log (n : ℝ)) := by
+  classical
+  let t := Real.log (n : ℝ)
+  let y := (n : ℝ) / t ^ 3
+  let S := (Icc 1 n).filter (fun u : ℕ ↦ u < L ∨ y < (u : ℝ))
+  change (∑ u ∈ S, (u : ℝ)⁻¹) ≤ 2 + 4 * Real.log t
+  have ht0 : 0 < t := zero_lt_one.trans_le ht
+  have hn : (n : ℝ) ≠ 0 := by
+    intro h
+    norm_num [h] at ht
+  have hy0 : 0 ≤ y := div_nonneg (Nat.cast_nonneg _) (pow_nonneg ht0.le _)
+  have hyn : y ≤ n := div_le_self (Nat.cast_nonneg _) (one_le_pow₀ ht)
+  have hfloor : ⌊y⌋₊ ≤ n := by exact_mod_cast (Nat.floor_le hy0).trans hyn
+  have hsub : Icc 1 ⌊y⌋₊ ⊆ Icc 1 n := Icc_subset_Icc_right hfloor
+  have lown : S.filter (· < L) ⊆ Icc 1 ⌊t⌋₊ := by
+    intro u hu
+    obtain ⟨huS, huL⟩ := mem_filter.mp hu
+    exact mem_Icc.mpr ⟨(mem_Icc.mp (mem_filter.mp huS).1).1,
+      Nat.le_floor ((Nat.cast_le.mpr (Nat.le_of_lt huL)).trans hLt)⟩
+  have highn : S.filter (fun u ↦ ¬u < L) ⊆ Icc 1 n \ Icc 1 ⌊y⌋₊ := by
+    intro u hu
+    obtain ⟨huS, huL⟩ := mem_filter.mp hu
+    obtain ⟨hun, huy⟩ := mem_filter.mp huS
+    exact mem_sdiff.mpr ⟨hun, fun h ↦ ((Nat.floor_lt hy0).mpr (huy.resolve_left huL)).not_ge
+      (mem_Icc.mp h).2⟩
+  have hlo := harmonic_floor_le_one_add_log t ht
+  have hhi := harmonic_le_one_add_log n
+  have hfloorlo := log_le_harmonic_floor y hy0
+  simp only [harmonic_eq_sum_Icc, Rat.cast_sum, Rat.cast_inv, Rat.cast_natCast] at hlo hhi hfloorlo
+  rw [show Real.log y = t - 3 * Real.log t by
+    dsimp only [y]; rw [Real.log_div hn (pow_ne_zero _ ht0.ne'), Real.log_pow]; norm_num [t]] at hfloorlo
+  rw [← sum_filter_add_sum_filter_not S (· < L)]
+  calc
+    _ ≤ (∑ u ∈ Icc 1 ⌊t⌋₊, (u : ℝ)⁻¹) + ∑ u ∈ Icc 1 n \ Icc 1 ⌊y⌋₊, (u : ℝ)⁻¹ :=
+      add_le_add (sum_le_sum_of_subset_of_nonneg lown fun _ _ _ ↦ by positivity)
+        (sum_le_sum_of_subset_of_nonneg highn fun _ _ _ ↦ by positivity)
+    _ ≤ _ := by
+      rw [sum_sdiff_eq_sub hsub]
+      change _ ≤ 1 + t at hhi
+      linarith only [hlo, hhi, hfloorlo]
 
-/-- Central pairs with either orientation size at most the cutoff pay two harmonic sums. -/
-theorem sum_twoStablePairSizeKernel_le_central_small {n m : ℕ} (hn : 0 < n)
+/-- Both orientation sizes are large enough for the forced cycle test and
+small enough that almost every label is common to the two matchings. -/
+def RegularOrientationPair (n L : ℕ) (p : ℕ × ℕ) : Prop :=
+  L ≤ p.1 ∧ L ≤ p.2 ∧ (p.1 : ℝ) ≤ n / (Real.log n)^3 ∧ (p.2 : ℝ) ≤ n / (Real.log n)^3
+
+/-- Pairs outside the regular rectangle have at least one size in a harmonic tail. -/
+theorem sum_twoStablePairSizeKernel_le_not_regularOrientationPair {n L : ℕ}
+    (ht : 1 ≤ Real.log (n : ℝ)) (hLt : (L : ℝ) ≤ Real.log (n : ℝ))
     (s : Finset (ℕ × ℕ)) (hs : ∀ p ∈ s, ValidPairSizes n p)
-    (hc : ∀ p ∈ s, CentralPairSizes n p) (hm : ∀ p ∈ s, p.1 ≤ m ∨ p.2 ≤ m) :
-    (∑ p ∈ s, twoStablePairSizeKernel n p) ≤
-      8 * (n : ℝ) ^ 2 * (1 + Real.log m) := by
-  let L := s.filter fun p ↦ p.1 ≤ m
-  let R := s.filter fun p ↦ p.2 ≤ m
-  have hL (p) (hp : p ∈ L) : p ∈ s ∧ p.1 ≤ m := mem_filter.mp hp
-  have hR (p) (hp : p ∈ R) : p ∈ s ∧ p.2 ≤ m := mem_filter.mp hp
-  have hsL (p) (hp : p ∈ swapSizePairs L) : ValidPairSizes n p := by
-    simpa using validPairSizes_swap (hs p.swap (hL _ (mem_swapSizePairs.mp hp)).1)
-  have hcL (p) (hp : p ∈ swapSizePairs L) : CentralPairSizes n p := by
-    simpa using centralPairSizes_swap (hc p.swap (hL _ (mem_swapSizePairs.mp hp)).1)
-  calc
-    _ ≤ (∑ p ∈ L, twoStablePairSizeKernel n p) + ∑ p ∈ R, twoStablePairSizeKernel n p :=
-      sum_le_filtered_cover s _ _ _ (fun p _ ↦ twoStablePairSizeKernel_nonneg n p) hm
-    _ = (∑ p ∈ swapSizePairs L, twoStablePairSizeKernel n p) +
-          ∑ p ∈ R, twoStablePairSizeKernel n p := by
-      rw [sum_twoStablePairSizeKernel_swapSizePairs L (fun p hp ↦ hs p (hL _ hp).1)]
-    _ ≤ 4 * (n : ℝ) ^ 2 * (1 + Real.log m) + 4 * (n : ℝ) ^ 2 * (1 + Real.log m) :=
-      add_le_add
-        (sum_twoStablePairSizeKernel_le_central_right hn _ hsL hcL
-          (fun p hp ↦ (hL _ (mem_swapSizePairs.mp hp)).2))
-        (sum_twoStablePairSizeKernel_le_central_right hn _
-          (fun p hp ↦ hs p (hR _ hp).1) (fun p hp ↦ hc p (hR _ hp).1)
-          (fun p hp ↦ (hR _ hp).2))
-    _ = _ := by ring
-
-/-- The central small-size contribution has a coefficient linear in the power cutoff. -/
-theorem sum_twoStablePairSizeKernel_le_central_small_power {n : ℕ} (hn : 0 < n)
-    (s : Finset (ℕ × ℕ)) (hs : ∀ p ∈ s, ValidPairSizes n p)
-    (hc : ∀ p ∈ s, CentralPairSizes n p) {a : ℝ} (ha : 0 ≤ a)
-    (hm : ∀ p ∈ s, (p.1 : ℝ) ≤ (n : ℝ) ^ a ∨ (p.2 : ℝ) ≤ (n : ℝ) ^ a) :
-    (∑ p ∈ s, twoStablePairSizeKernel n p) ≤
-      8 * (n : ℝ) ^ 2 * (1 + a * Real.log n) := by
-  let m := ⌊(n : ℝ) ^ a⌋₊
-  have hnp : 0 < (n : ℝ) := by exact_mod_cast hn
-  have hna : 1 ≤ (n : ℝ) ^ a := Real.one_le_rpow (Nat.one_le_cast.mpr hn) ha
-  have hmpos : (0 : ℝ) < m := Nat.cast_pos.mpr (Nat.floor_pos.mpr hna)
-  have hlog : Real.log m ≤ a * Real.log n := by
-    rw [← Real.log_rpow hnp]
-    exact Real.log_le_log hmpos (Nat.floor_le (zero_le_one.trans hna))
-  calc
-    _ ≤ 8 * (n : ℝ) ^ 2 * (1 + Real.log m) :=
-      sum_twoStablePairSizeKernel_le_central_small hn s hs hc
-        (fun p hp ↦ (hm p hp).imp Nat.le_floor Nat.le_floor)
-    _ ≤ _ := by gcongr
-
-private theorem twoStablePairSizeKernel_le_extreme_left {n u v : ℕ} (hn : 0 < n)
-    (hu : n < 2 * u) (hv : 2 ≤ v) (h : u + v ≤ n) :
-    twoStablePairSizeKernel n (u, v) ≤
-      (2 * (n : ℝ) ^ 2 / (n - u : ℕ)) * ((↑(n - u) : ℝ) / n) ^ v := by
-  have hn' : 0 < (n : ℝ) := by exact_mod_cast hn
-  have ht : (0 : ℝ) < (n - u : ℕ) := by exact_mod_cast (show 0 < n - u by omega)
-  have hvn : v ≤ n := by omega
-  have hvp : (n : ℝ) / 2 ≤ (n - v : ℕ) := by
-    rw [Nat.cast_sub hvn]
-    have h' : (2 : ℝ) * v ≤ n := by exact_mod_cast (show 2 * v ≤ n by omega)
-    linarith
-  unfold twoStablePairSizeKernel
-  calc
-    _ ≤ (n : ℝ) ^ 3 / ((↑(n - u) : ℝ) * (n / 2)) * ((↑(n - u) : ℝ) / n) ^ v := by
-      refine mul_le_mul ?_ (descFactorial_ratio_le_pow (Nat.sub_le n u) (by omega))
-        (by positivity) (by positivity)
-      apply div_le_div_of_nonneg_left (by positivity) (by positivity)
-      exact mul_le_mul_of_nonneg_left hvp ht.le
-    _ = _ := by field_simp
-
-private theorem sum_twoStablePairSizeKernel_le_extreme_row {n u : ℕ} (hn : 0 < n)
-    (hu : n < 2 * u) (ht : 2 ≤ n - u) :
-    (∑ v ∈ Icc 2 (n - u), twoStablePairSizeKernel n (u, v)) ≤ 4 * (n - u : ℕ) := by
-  let t := n - u
-  let q : ℝ := (t : ℝ) / n
-  have hn' : 0 < (n : ℝ) := by exact_mod_cast hn
-  have ht' : 0 < (t : ℝ) := by exact_mod_cast (show 0 < t by dsimp [t]; omega)
-  have hq₀ : 0 ≤ q := by dsimp [q]; positivity
-  have hq₂ : q ≤ 1 / 2 := by
-    apply (div_le_iff₀ hn').2
-    have htr : (2 : ℝ) * t ≤ n := by exact_mod_cast (show 2 * t ≤ n by dsimp [t]; omega)
-    linarith
-  have hq₁ : q < 1 := by linarith
-  calc
-    _ ≤ ∑ v ∈ Icc 2 t, (2 * (n : ℝ) ^ 2 / t) * q ^ v := by
-      refine sum_le_sum fun v hv ↦ ?_
-      have hv' := mem_Icc.mp hv
-      exact twoStablePairSizeKernel_le_extreme_left hn hu hv'.1 (by omega)
-    _ = (2 * (n : ℝ) ^ 2 / t) * ∑ v ∈ Icc 2 t, q ^ v := (mul_sum ..).symm
-    _ ≤ (2 * (n : ℝ) ^ 2 / t) * (q ^ 2 / (1 - q)) :=
-      mul_le_mul_of_nonneg_left (sum_pow_Icc_le hq₀ hq₁ _ _) (by positivity)
-    _ ≤ (2 * (n : ℝ) ^ 2 / t) * (q ^ 2 / (1 / 2)) := by
-      apply mul_le_mul_of_nonneg_left _ (by positivity)
-      exact div_le_div_of_nonneg_left (by positivity) (by norm_num) (by linarith)
-    _ = _ := by change _ = 4 * (t : ℝ); dsimp [q]; field_simp; ring
-
-private theorem sum_twoStablePairSizeKernel_le_extreme_left {n : ℕ} (hn : 0 < n)
-    (s : Finset (ℕ × ℕ)) (hs : ∀ p ∈ s, ValidPairSizes n p)
-    (he : ∀ p ∈ s, n < 2 * p.1) :
-    (∑ p ∈ s, twoStablePairSizeKernel n p) ≤ 4 * (n : ℝ) ^ 2 := by
-  have hmaps (p) (hp : p ∈ s) : p.1 ∈ Icc 1 n := by
-    obtain ⟨h1, h2, hsum⟩ := hs p hp
-    exact mem_Icc.mpr ⟨by omega, by omega⟩
-  have hrow (u : ℕ) :
-      (∑ p ∈ s.filter (fun p ↦ p.1 = u), twoStablePairSizeKernel n p) ≤ 4 * (n : ℝ) := by
-    let row := s.filter (fun p ↦ p.1 = u)
-    change (∑ p ∈ row, twoStablePairSizeKernel n p) ≤ _
-    by_cases hempty : row = ∅
-    · rw [hempty, sum_empty]
-      positivity
-    obtain ⟨p, hp⟩ := nonempty_iff_ne_empty.mpr hempty
-    obtain ⟨hps, hpu⟩ := mem_filter.mp hp
-    have hu : n < 2 * u := hpu ▸ he p hps
-    have ht : 2 ≤ n - u := by obtain ⟨_, _, h⟩ := hs p hps; have := (hs p hps).2.1; omega
-    have hbox : row ⊆ {u} ×ˢ Icc 2 (n - u) := by
-      intro q hq
-      obtain ⟨hqs, hqu⟩ := mem_filter.mp hq
-      obtain ⟨_, hq2, hqsum⟩ := hs q hqs
-      exact mem_product.mpr ⟨mem_singleton.mpr hqu, mem_Icc.mpr ⟨hq2, by omega⟩⟩
-    calc
-      _ ≤ ∑ q ∈ {u} ×ˢ Icc 2 (n - u), twoStablePairSizeKernel n q :=
-        sum_le_sum_of_subset_of_nonneg hbox (fun q _ _ ↦ twoStablePairSizeKernel_nonneg n q)
-      _ = ∑ v ∈ Icc 2 (n - u), twoStablePairSizeKernel n (u, v) := by
-        rw [sum_product, sum_singleton]
-      _ ≤ 4 * (n - u : ℕ) := sum_twoStablePairSizeKernel_le_extreme_row hn hu ht
-      _ ≤ _ := by gcongr; exact Nat.sub_le n u
-  calc
-    _ = ∑ u ∈ Icc 1 n, ∑ p ∈ s.filter (fun p ↦ p.1 = u), twoStablePairSizeKernel n p :=
-      (sum_fiberwise_of_maps_to hmaps _).symm
-    _ ≤ ∑ _u ∈ Icc 1 n, 4 * (n : ℝ) := sum_le_sum (fun u _ ↦ hrow u)
-    _ = _ := by
-      rw [sum_const]
-      simp only [Nat.card_Icc, Nat.add_sub_cancel, nsmul_eq_mul]
-      ring
-
-/-- Pairs with one orientation strictly larger than half have only quadratic kernel mass. -/
-theorem sum_twoStablePairSizeKernel_le_extreme {n : ℕ} (hn : 0 < n)
-    (s : Finset (ℕ × ℕ)) (hs : ∀ p ∈ s, ValidPairSizes n p)
-    (he : ∀ p ∈ s, ¬CentralPairSizes n p) :
-    (∑ p ∈ s, twoStablePairSizeKernel n p) ≤ 8 * (n : ℝ) ^ 2 := by
-  let L := s.filter fun p ↦ n < 2 * p.1
-  let R := s.filter fun p ↦ n < 2 * p.2
-  have hL (p) (hp : p ∈ L) : p ∈ s ∧ n < 2 * p.1 := mem_filter.mp hp
-  have hR (p) (hp : p ∈ R) : p ∈ s ∧ n < 2 * p.2 := mem_filter.mp hp
-  have hsR (p) (hp : p ∈ swapSizePairs R) : ValidPairSizes n p := by
-    simpa using validPairSizes_swap (hs p.swap (hR _ (mem_swapSizePairs.mp hp)).1)
-  calc
-    _ ≤ (∑ p ∈ L, twoStablePairSizeKernel n p) + ∑ p ∈ R, twoStablePairSizeKernel n p :=
-      sum_le_filtered_cover s _ _ _ (fun p _ ↦ twoStablePairSizeKernel_nonneg n p)
-        (fun p hp ↦ by
-          by_cases h : n < 2 * p.1
-          · exact Or.inl h
-          · exact Or.inr (lt_of_not_ge fun hv ↦ he p hp ⟨le_of_not_gt h, hv⟩))
-    _ = (∑ p ∈ L, twoStablePairSizeKernel n p) +
-          ∑ p ∈ swapSizePairs R, twoStablePairSizeKernel n p := by
-      rw [sum_twoStablePairSizeKernel_swapSizePairs R (fun p hp ↦ hs p (hR _ hp).1)]
-    _ ≤ 4 * (n : ℝ) ^ 2 + 4 * (n : ℝ) ^ 2 :=
-      add_le_add
-        (sum_twoStablePairSizeKernel_le_extreme_left hn _
-          (fun p hp ↦ hs p (hL _ hp).1) (fun p hp ↦ (hL _ hp).2))
-        (sum_twoStablePairSizeKernel_le_extreme_left hn _ hsR
-          (fun p hp ↦ (hR _ (mem_swapSizePairs.mp hp)).2))
-    _ = _ := by ring
-
-/-- When both central orientation sizes are at least b times the square root,
-the exponential separates and leaves no harmonic loss. -/
-theorem sum_twoStablePairSizeKernel_le_central_both_long {n : ℕ} (hn : 0 < n)
-    (s : Finset (ℕ × ℕ)) (hs : ∀ p ∈ s, ValidPairSizes n p)
-    (hc : ∀ p ∈ s, CentralPairSizes n p) {b : ℝ} (hb : 0 < b)
-    (hl : ∀ p ∈ s, b * Real.sqrt n ≤ (p.1 : ℝ) ∧ b * Real.sqrt n ≤ (p.2 : ℝ)) :
-    (∑ p ∈ s, twoStablePairSizeKernel n p) ≤ 16 * (n : ℝ) ^ 2 / b ^ 2 := by
-  let r := Real.sqrt (n : ℝ)
-  let a := b / (2 * r)
-  have hn' : 0 < (n : ℝ) := by exact_mod_cast hn
-  have hr : 0 < r := Real.sqrt_pos.mpr hn'
-  have ha : 0 < a := by dsimp [a]; positivity
-  have hrn : r ^ 2 = n := Real.sq_sqrt hn'.le
-  have hscale : a * (n : ℝ) = b * r / 2 := by
-    rw [← hrn]
-    dsimp [a]
-    field_simp
-  have hbox : s ⊆ Icc 1 n ×ˢ Icc 1 n := by
-    intro p hp
+    (he : ∀ p ∈ s, ¬RegularOrientationPair n L p) :
+    (∑ p ∈ s, twoStablePairSizeKernel n p) ≤ 2 * (n : ℝ)^2 * (2 + 4 * Real.log (Real.log n)) := by
+  classical
+  let U := (Icc 1 n).filter fun u : ℕ ↦ u < L ∨ n / (Real.log (n : ℝ))^3 < (u : ℝ)
+  have hcover (p) (hp : p ∈ s) : p.1 ∈ U ∨ p.2 ∈ U := by
     obtain ⟨hu, hv, huv⟩ := hs p hp
-    exact mem_product.mpr ⟨mem_Icc.mpr ⟨by omega, by omega⟩,
-      mem_Icc.mpr ⟨by omega, by omega⟩⟩
+    have hor : (p.1 < L ∨ n / (Real.log (n : ℝ))^3 < (p.1 : ℝ)) ∨
+        (p.2 < L ∨ n / (Real.log (n : ℝ))^3 < (p.2 : ℝ)) := by
+      by_contra! h
+      exact he p hp ⟨h.1.1, h.2.1, h.1.2, h.2.2⟩
+    exact hor.imp
+      (fun h ↦ mem_filter.mpr ⟨mem_Icc.mpr ⟨by omega, by omega⟩, h⟩)
+      (fun h ↦ mem_filter.mpr ⟨mem_Icc.mpr ⟨by omega, by omega⟩, h⟩)
+  let A := s.filter fun p ↦ p.1 ∈ U
+  let B := s.filter fun p ↦ p.2 ∈ U
+  have hB (p) (hp : p ∈ B) : ValidPairSizes n p := hs p (mem_filter.mp hp).1
+  have hA := sum_twoStablePairSizeKernel_le_rows A (fun p hp ↦ hs p (mem_filter.mp hp).1) U
+    (fun p hp ↦ (mem_filter.mp hp).2)
+  have hB' := sum_twoStablePairSizeKernel_le_rows (swapSizePairs B)
+    (fun p hp ↦ by simpa using validPairSizes_swap (hB p.swap (mem_swapSizePairs.mp hp))) U
+    (fun _ hp ↦ (mem_filter.mp (mem_swapSizePairs.mp hp)).2)
+  rw [sum_twoStablePairSizeKernel_swapSizePairs B hB] at hB'
   calc
-    _ ≤ ∑ p ∈ s, 4 * n * (Real.exp (-a * p.1) * Real.exp (-a * p.2)) := by
-      refine sum_le_sum fun p hp ↦ (twoStablePairSizeKernel_le_central hn
-        (hs p hp).2.2 (hc p hp).1 (hc p hp).2).trans ?_
-      have h₁ := mul_le_mul_of_nonneg_left (hl p hp).2 (show (0 : ℝ) ≤ p.1 by positivity)
-      have h₂ := mul_le_mul_of_nonneg_right (hl p hp).1 (show (0 : ℝ) ≤ p.2 by positivity)
-      have hcomp : a * (p.1 : ℝ) + a * p.2 ≤ (p.1 : ℝ) * p.2 / n := by
-        apply (le_div_iff₀ hn').2
-        calc
-          _ = (a * n) * ((p.1 : ℝ) + p.2) := by ring
-          _ = ((p.1 : ℝ) * (b * r) + b * r * p.2) / 2 := by rw [hscale]; ring
-          _ ≤ _ := by linarith only [h₁, h₂]
-      rw [← Real.exp_add]
-      apply mul_le_mul_of_nonneg_left (Real.exp_le_exp.mpr ?_) (by positivity)
-      calc
-        _ = -((p.1 : ℝ) * p.2 / n) := by ring
-        _ ≤ -(a * (p.1 : ℝ) + a * p.2) := neg_le_neg hcomp
-        _ = _ := by ring
-    _ ≤ ∑ p ∈ Icc 1 n ×ˢ Icc 1 n,
-          4 * n * (Real.exp (-a * p.1) * Real.exp (-a * p.2)) :=
-      sum_le_sum_of_subset_of_nonneg hbox (fun _ _ _ ↦ by positivity)
-    _ = 4 * n * (∑ u ∈ Icc 1 n, Real.exp (-a * u)) ^ 2 := by
-      rw [sum_product]
-      simp only [mul_assoc, ← mul_sum, sq, sum_mul_sum]
-    _ ≤ 4 * n * (a⁻¹) ^ 2 := by
-      apply mul_le_mul_of_nonneg_left _ (by positivity)
-      exact pow_le_pow_left₀ (sum_nonneg fun _ _ ↦ Real.exp_nonneg _)
-        (sum_exp_neg_mul_Icc_le ha n) _
-    _ = _ := by
-      dsimp [a]
-      rw [inv_div, div_pow, mul_pow, hrn]
-      ring
-
-private theorem sum_twoStablePairSizeKernel_le_of_central_bound {n : ℕ} (hn : 0 < n)
-    (s : Finset (ℕ × ℕ)) (hs : ∀ p ∈ s, ValidPairSizes n p) (B : ℝ)
-    (hB : ∀ t ⊆ s, (∀ p ∈ t, CentralPairSizes n p) →
-      (∑ p ∈ t, twoStablePairSizeKernel n p) ≤ B) :
-    (∑ p ∈ s, twoStablePairSizeKernel n p) ≤ B + 8 * (n : ℝ) ^ 2 := by
-  classical
-  let C := s.filter (CentralPairSizes n)
-  let E := s.filter (fun p ↦ ¬CentralPairSizes n p)
-  calc
-    _ = (∑ p ∈ C, twoStablePairSizeKernel n p) + ∑ p ∈ E, twoStablePairSizeKernel n p :=
-      (sum_filter_add_sum_filter_not s (CentralPairSizes n) (twoStablePairSizeKernel n)).symm
-    _ ≤ _ := add_le_add
-      (hB C (filter_subset _ _) (fun p hp ↦ (mem_filter.mp hp).2))
-      (sum_twoStablePairSizeKernel_le_extreme hn E (fun p hp ↦ hs p (mem_filter.mp hp).1)
-        (fun p hp ↦ (mem_filter.mp hp).2))
-
-/-- All valid sizes have at most quadratic-logarithmic kernel mass. -/
-theorem sum_twoStablePairSizeKernel_le_total {n : ℕ} (hn : 0 < n)
-    (s : Finset (ℕ × ℕ)) (hs : ∀ p ∈ s, ValidPairSizes n p) :
-    (∑ p ∈ s, twoStablePairSizeKernel n p) ≤ 12 * (n : ℝ) ^ 2 * (1 + Real.log n) := by
-  have hlog : 0 ≤ Real.log (n : ℝ) := Real.log_nonneg (Nat.one_le_cast.mpr hn)
-  calc
-    _ ≤ 4 * (n : ℝ) ^ 2 * (1 + Real.log n) + 8 * (n : ℝ) ^ 2 :=
-      sum_twoStablePairSizeKernel_le_of_central_bound hn s hs _ (fun t ht hc ↦
-        sum_twoStablePairSizeKernel_le_central_right hn t
-          (fun p hp ↦ hs p (ht hp)) hc
-          (fun p hp ↦ (hs p (ht hp)).2.2.trans' (Nat.le_add_left _ _)))
-    _ ≤ _ := by nlinarith only [mul_nonneg (sq_nonneg (n : ℝ)) hlog]
-
-/-- The full small-size contribution includes an additive quadratic extreme term. -/
-theorem sum_twoStablePairSizeKernel_le_small_power {n : ℕ} (hn : 0 < n)
-    (s : Finset (ℕ × ℕ)) (hs : ∀ p ∈ s, ValidPairSizes n p) {a : ℝ} (ha : 0 ≤ a)
-    (hm : ∀ p ∈ s, (p.1 : ℝ) ≤ (n : ℝ) ^ a ∨ (p.2 : ℝ) ≤ (n : ℝ) ^ a) :
-    (∑ p ∈ s, twoStablePairSizeKernel n p) ≤
-      8 * (n : ℝ) ^ 2 * (2 + a * Real.log n) := by
-  calc
-    _ ≤ 8 * (n : ℝ) ^ 2 * (1 + a * Real.log n) + 8 * (n : ℝ) ^ 2 :=
-      sum_twoStablePairSizeKernel_le_of_central_bound hn s hs _ (fun t ht hc ↦
-        sum_twoStablePairSizeKernel_le_central_small_power hn t
-          (fun p hp ↦ hs p (ht hp)) hc ha (fun p hp ↦ hm p (ht hp)))
-    _ = _ := by ring
-
-/-- All pairs with both orientation sizes at least b times the square root
-have quadratic kernel mass. -/
-theorem sum_twoStablePairSizeKernel_le_both_long {n : ℕ} (hn : 0 < n)
-    (s : Finset (ℕ × ℕ)) (hs : ∀ p ∈ s, ValidPairSizes n p) {b : ℝ} (hb : 0 < b)
-    (hl : ∀ p ∈ s, b * Real.sqrt n ≤ (p.1 : ℝ) ∧ b * Real.sqrt n ≤ (p.2 : ℝ)) :
-    (∑ p ∈ s, twoStablePairSizeKernel n p) ≤ (8 + 16 / b ^ 2) * (n : ℝ) ^ 2 := by
-  calc
-    _ ≤ 16 * (n : ℝ) ^ 2 / b ^ 2 + 8 * (n : ℝ) ^ 2 :=
-      sum_twoStablePairSizeKernel_le_of_central_bound hn s hs _ (fun t ht hc ↦
-        sum_twoStablePairSizeKernel_le_central_both_long hn t
-          (fun p hp ↦ hs p (ht hp)) hc hb (fun p hp ↦ hl p (ht hp)))
-    _ = _ := by ring
-
-/-- The range left after excluding extreme, small, and large-product orientation sizes. -/
-def RegularPairSizes (n : ℕ) (a : ℝ) (p : ℕ × ℕ) : Prop :=
-  CentralPairSizes n p ∧
-    (n : ℝ) ^ a < (p.1 : ℝ) ∧ (n : ℝ) ^ a < (p.2 : ℝ) ∧
-    (p.1 : ℝ) * p.2 ≤ 3 * n * Real.log n
-
-/-- In the regular range the union of moved labels is small enough for the common-row bound. -/
-theorem add_le_of_regularPairSizes {n : ℕ} (hn : 0 < n) {a : ℝ} {p : ℕ × ℕ}
-    (hp : RegularPairSizes n a p) :
-    (p.1 : ℝ) + p.2 ≤ 6 * (n : ℝ) ^ (1 - a) * Real.log n := by
-  obtain ⟨_, h₁, h₂, hprod⟩ := hp
-  have hn' : 0 < (n : ℝ) := by exact_mod_cast hn
-  have ha : 0 < (n : ℝ) ^ a := Real.rpow_pos_of_pos hn' _
-  have hleft : (p.1 : ℝ) ≤ (3 * n * Real.log n) / (n : ℝ) ^ a :=
-    (le_div_iff₀ ha).2 ((mul_le_mul_of_nonneg_left h₂.le (by positivity)).trans hprod)
-  have hright : (p.2 : ℝ) ≤ (3 * n * Real.log n) / (n : ℝ) ^ a := by
-    apply (le_div_iff₀ ha).2
-    rw [mul_comm (p.2 : ℝ)]
-    exact (mul_le_mul_of_nonneg_right h₁.le (by positivity)).trans hprod
-  calc
-    _ ≤ 2 * ((3 * n * Real.log n) / (n : ℝ) ^ a) := by linarith only [hleft, hright]
-    _ = _ := by rw [Real.rpow_sub hn', Real.rpow_one]; ring
-
-/-- All size pairs outside the regular range have a linear-in-a bound, plus quadratic error. -/
-theorem sum_twoStablePairSizeKernel_le_not_regular {n : ℕ} (hn : 0 < n)
-    (s : Finset (ℕ × ℕ)) (hs : ∀ p ∈ s, ValidPairSizes n p) {a : ℝ} (ha : 0 ≤ a)
-    (he : ∀ p ∈ s, ¬RegularPairSizes n a p) :
-    (∑ p ∈ s, twoStablePairSizeKernel n p) ≤
-      8 * (n : ℝ) ^ 2 * (2 + a * Real.log n) + 4 := by
-  classical
-  have hn' : 0 < (n : ℝ) := by exact_mod_cast hn
-  have hB : ∀ t ⊆ s, (∀ p ∈ t, CentralPairSizes n p) →
-      (∑ p ∈ t, twoStablePairSizeKernel n p) ≤
-        8 * (n : ℝ) ^ 2 * (1 + a * Real.log n) + 4 := by
-    intro t ht hc
-    let P (p : ℕ × ℕ) : Prop := (p.1 : ℝ) ≤ (n : ℝ) ^ a ∨ (p.2 : ℝ) ≤ (n : ℝ) ^ a
-    let Q (p : ℕ × ℕ) : Prop := 3 * Real.log n ≤ (p.1 : ℝ) * p.2 / n
-    have hcov (p) (hp : p ∈ t) : P p ∨ Q p := by
-      by_cases hP : P p
-      · exact Or.inl hP
-      · right
-        by_contra hQ
-        exact he p (ht hp) ⟨hc p hp,
-          lt_of_not_ge (fun h ↦ hP (Or.inl h)), lt_of_not_ge (fun h ↦ hP (Or.inr h)), by
-            calc
-              _ ≤ (3 * Real.log n) * n :=
-                (div_le_iff₀ hn').1 (le_of_lt (lt_of_not_ge hQ))
-              _ = _ := by ring⟩
-    calc
-      _ ≤ (∑ p ∈ t.filter P, twoStablePairSizeKernel n p) +
-          ∑ p ∈ t.filter Q, twoStablePairSizeKernel n p :=
-        sum_le_filtered_cover t _ P Q (fun p _ ↦ twoStablePairSizeKernel_nonneg n p) hcov
-      _ ≤ _ := add_le_add
-        (sum_twoStablePairSizeKernel_le_central_small_power hn _
-          (fun p hp ↦ hs p (ht (mem_filter.mp hp).1))
-          (fun p hp ↦ hc p (mem_filter.mp hp).1) ha (fun _ hp ↦ (mem_filter.mp hp).2))
-        (sum_twoStablePairSizeKernel_le_central_log_product hn _
-          (fun p hp ↦ hs p (ht (mem_filter.mp hp).1))
-          (fun p hp ↦ hc p (mem_filter.mp hp).1) (fun _ hp ↦ (mem_filter.mp hp).2))
-  calc
-    _ ≤ (8 * (n : ℝ) ^ 2 * (1 + a * Real.log n) + 4) + 8 * (n : ℝ) ^ 2 :=
-      sum_twoStablePairSizeKernel_le_of_central_bound hn s hs _ hB
-    _ = _ := by ring
+    _ ≤ (∑ p ∈ A, twoStablePairSizeKernel n p) + ∑ p ∈ B, twoStablePairSizeKernel n p :=
+      sum_le_filtered_cover s _ _ _ (fun p _ ↦ twoStablePairSizeKernel_nonneg n p) hcover
+    _ ≤ 2 * (n : ℝ)^2 * ∑ u ∈ U, (u : ℝ)⁻¹ := by linarith only [hA,hB']
+    _ ≤ _ := mul_le_mul_of_nonneg_left (sum_inv_outside_orientation_interval_le ht hLt)
+      (by positivity)
 
 /-- Transfer any of the kernel-sum bounds to a per-size probability or count bound
 with the common prefactor from the two-matching estimate. -/

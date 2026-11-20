@@ -140,16 +140,10 @@ theorem lintegral_realizedReverseSupportCount_fixedMask_ge {n k : ℕ}
     (hη : ∀ i, ∑ j ∈ forwardMaskForbiddenTargets μ flag i, reverseSpouseWeights μ d j ≤ η)
     (hy0 : ∀ i, 0 ≤ (diagonalPairAt d i).2) (hy1 : ∀ i, (diagonalPairAt d i).2 < 1)
     (hx : ∀ i, (diagonalPairAt d i).1 ∈ Icc 0 1)
-    (hX : 2 ≤ ∑ i, (diagonalPairAt d i).1)
-    (hcomp : ∀ (i : Fin n) (q : ForwardInactiveColumnIndex flag i),
-      (∑ j, (diagonalPairAt d j).1) / 2 ≤
-        ∑ t : {t : ForwardInactiveColumnIndex flag i // t ≠ q},
-          (diagonalPairAt d t.val.val.val.val.1).1)
-    {m δ : ℝ} (hm : ∀ i, (diagonalPairAt d i).1 ≤ m)
-    (hδ : 14 * m / (∑ i, (diagonalPairAt d i).1) +
-      Real.exp (-(∑ i, (diagonalPairAt d i).1) / 4) ≤ δ) (hδ1 : δ ≤ 1)
+    (hX : 0 < ∑ i, (diagonalPairAt d i).1)
     (ht : ∀ᵐ z ∂(offDiagonalScoreLaw n),
       ∀ r, Function.Injective ((splitScorePairs μ).symm (d, z) r)) :
+    let δ := reverseLowerArcError (∑ i, (diagonalPairAt d i).1)
     let F := forwardMaskForbiddenTargets μ flag
     let r := reverseSpouseWeights μ d
     let c := (forwardScoreMaskActiveMaleLaw d flag) U *
@@ -158,7 +152,7 @@ theorem lintegral_realizedReverseSupportCount_fixedMask_ge {n k : ℕ}
       ∫⁻ z, (realizedReversePermutationCount (goodReverseSupportPermutations k A F)
         (swapProfile (profileOfScores ((splitScorePairs μ).symm (d, z)))) μ.symm : ℝ≥0∞)
         ∂forwardMaskRevealLaw d flag U := by
-  intro F r c
+  intro δ F r c
   let S := goodReverseSupportPermutations k A F
   let ν := forwardMaskRevealLaw d flag U
   let P (z : OffDiagonalScorePairs n) :=
@@ -167,7 +161,7 @@ theorem lintegral_realizedReverseSupportCount_fixedMask_ge {n k : ℕ}
     (show Measurable (swapProfile (n := n)) from fun _ _ ↦ MeasurableSet.of_discrete).comp
       ((measurable_profileOfScores n).comp
         ((splitScorePairs μ).symm.measurable.comp (measurable_const.prodMk measurable_id)))
-  have hr : ∑ i, r i = 1 := sum_reverseSpouseWeights μ d (fun i ↦ (hx i).1) (by linarith)
+  have hr : ∑ i, r i = 1 := sum_reverseSpouseWeights μ d (fun i ↦ (hx i).1) hX
   change _ ≤ ∫⁻ z, (realizedReversePermutationCount S (P z) μ.symm : ℝ≥0∞) ∂ν
   rw [lintegral_realizedReversePermutationCount ν P hP μ.symm S]
   calc
@@ -191,8 +185,7 @@ theorem lintegral_realizedReverseSupportCount_fixedMask_ge {n k : ℕ}
           obtain ⟨q, hq⟩ := (notMem_forwardMaskForbiddenTargets_iff μ flag i (σ i)).mp
             (hmem.2 i hi).2
           exact normalizedForwardInactiveColumnLaw_reverseArc_ge d flag (μ.symm i)
-            (μ.symm (σ i)) q hq (hy0 _) (hy1 _) hx hX (hcomp _ q)
-            (forwardInactiveCompetitor_sum_le_total d flag _ q (fun j ↦ (hx j).1)) hm hδ hδ1
+            (μ.symm (σ i)) q hq (hy0 _) (hy1 _) hx hX
 
 /-- A small cumulative arc perturbation and a small label loss leave at
 least three sixteenths of a collection in expectation per support size. -/
@@ -230,15 +223,8 @@ theorem lintegral_realizedReverseSupportCounts_truncated_fixedMask_ge {n K : ℕ
       reverseGoodLabelLoss k (reverseSpouseWeights μ d) A η ≤ ENNReal.ofReal (1 / 4))
     (hy0 : ∀ i, 0 ≤ (diagonalPairAt d i).2) (hy1 : ∀ i, (diagonalPairAt d i).2 < 1)
     (hx : ∀ i, (diagonalPairAt d i).1 ∈ Icc 0 1)
-    (hX : 2 ≤ ∑ i, (diagonalPairAt d i).1)
-    (hcomp : ∀ (i : Fin n) (q : ForwardInactiveColumnIndex flag i),
-      (∑ j, (diagonalPairAt d j).1) / 2 ≤
-        ∑ t : {t : ForwardInactiveColumnIndex flag i // t ≠ q},
-          (diagonalPairAt d t.val.val.val.val.1).1)
-    {m δ : ℝ} (hm : ∀ i, (diagonalPairAt d i).1 ≤ m)
-    (hδ : 14 * m / (∑ i, (diagonalPairAt d i).1) +
-      Real.exp (-(∑ i, (diagonalPairAt d i).1) / 4) ≤ δ) (hδ0 : 0 ≤ δ) (hδ1 : δ ≤ 1)
-    (hKδ : (K : ℝ) * δ ≤ 1 / 4)
+    (hX : 0 < ∑ i, (diagonalPairAt d i).1)
+    (hKδ : (K : ℝ) * reverseLowerArcError (∑ i, (diagonalPairAt d i).1) ≤ 1 / 4)
     (ht : ∀ᵐ z ∂(offDiagonalScoreLaw n),
       ∀ r, Function.Injective ((splitScorePairs μ).symm (d, z) r)) :
     let F := forwardMaskForbiddenTargets μ flag
@@ -250,6 +236,8 @@ theorem lintegral_realizedReverseSupportCounts_truncated_fixedMask_ge {n K : ℕ
           (swapProfile (profileOfScores ((splitScorePairs μ).symm (d, z)))) μ.symm : ℝ≥0∞))
         ∂forwardMaskRevealLaw d flag U := by
   intro F c
+  let δ := reverseLowerArcError (∑ i, (diagonalPairAt d i).1)
+  obtain ⟨hδ0, hδ1⟩ := reverseLowerArcError_mem_Icc hX.le
   let P (z : OffDiagonalScorePairs n) :=
     swapProfile (profileOfScores ((splitScorePairs μ).symm (d, z)))
   let f (k : ℕ) (z : OffDiagonalScorePairs n) : ℝ≥0∞ :=
@@ -274,7 +262,7 @@ theorem lintegral_realizedReverseSupportCounts_truncated_fixedMask_ge {n K : ℕ
       have hkδ := (mul_le_mul_of_nonneg_right (Nat.cast_le.mpr hkr.2) hδ0).trans hKδ
       have h := reverseSupportCoefficient_ge hδ1 hkδ (hL k hk)
       have hbound := lintegral_realizedReverseSupportCount_fixedMask_ge μ d flag U hU A hkr.1 η
-        hη hy0 hy1 hx hX hcomp hm hδ hδ1 ht
+        hη hy0 hy1 hx hX ht
       change c * ENNReal.ofReal (1 - δ) ^ k *
         ((1 - reverseGoodLabelLoss k (reverseSpouseWeights μ d) A η) / 3) ≤
         ∫⁻ z, f k z ∂ν at hbound

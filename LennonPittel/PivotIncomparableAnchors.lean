@@ -1,5 +1,6 @@
 module
 
+public import LennonPittel.MeanUpperBound
 public import LennonPittel.PivotLocalEligibility
 public import LennonPittel.PivotSingletonMarkedLength
 public import LennonPittel.PivotTwoCycleForest
@@ -351,12 +352,12 @@ theorem eventually_sum_measure_scoreStableTwoForwardWindowEvent_le {b A : ℝ}
     (hb : 0 < b) (hA₀ : 0 ≤ A) :
     ∀ᶠ n : ℕ in atTop,
       (∑ μ : Matching n, continuousScoreLaw n (scoreStableTwoForwardWindowEvent μ b A)) ≤
-        ENNReal.ofReal (twoForwardWindowConstant b A * Real.sqrt n * Real.log n +
+        ENNReal.ofReal (meanUpperConstant * twoForwardWindowConstant b A * Real.sqrt n * Real.log n +
           (n : ℝ) ^ (-3 : ℝ)) := by
   filter_upwards [eventually_coexposureSuccessorPerturbation_bounds,
     eventually_hasForwardReferenceDeficit_of_singletonLengthGoodDiagonal,
     eventually_sum_measure_badSingletonLengthDiagonal_le,
-    eventually_expectedNumStableMatchings_le_sizeLog] with n hp hdef hbad hmean
+    eventually_expectedNumStableMatchings_le_meanUpper] with n hp hdef hbad hmean
   obtain ⟨hn, hη₀, hη, hA, hB, hδ⟩ := hp
   let C := singletonLengthGoodDiagonal n
   let D := Real.exp (1 + 2 * A) * ((A + 1) / b) ^ 2
@@ -421,18 +422,21 @@ theorem eventually_sum_measure_scoreStableTwoForwardWindowEvent_le {b A : ℝ}
         ENNReal.ofReal (c / Real.sqrt n) +
           continuousScoreLaw n (badSingletonLengthDiagonalEvent μ C)) :=
       Finset.sum_le_sum fun μ _ ↦ hm μ
-    _ ≤ ENNReal.ofReal ((n : ℝ) * Real.log n) * ENNReal.ofReal (c / Real.sqrt n) +
+    _ ≤ ENNReal.ofReal (meanUpperConstant * ((n : ℝ) * Real.log n)) *
+        ENNReal.ofReal (c / Real.sqrt n) +
         ENNReal.ofReal ((n : ℝ) ^ (-3 : ℝ)) := by
       rw [Finset.sum_add_distrib, ← Finset.sum_mul, sum_measure_scoreStable_eq_expected]
       exact add_le_add (mul_le_mul_left (ENNReal.ofReal_le_ofReal hmean) _) hbad
     _ = _ := by
-      rw [← ENNReal.ofReal_mul (mul_nonneg hn₀.le (Real.log_nonneg hn₁)),
+      have hM := meanUpperConstant_nonneg
+      rw [← ENNReal.ofReal_mul (mul_nonneg hM (mul_nonneg hn₀.le (Real.log_nonneg hn₁))),
         ← ENNReal.ofReal_add (by positivity) (by positivity)]
       congr 1
       have hquot : (n : ℝ) / Real.sqrt n = Real.sqrt n :=
         (div_eq_iff hs.ne').mpr (by simpa only [pow_two] using hsq.symm)
       calc
-        _ = c * ((n : ℝ) / Real.sqrt n) * Real.log n + (n : ℝ) ^ (-3 : ℝ) := by ring
+        _ = meanUpperConstant * c * ((n : ℝ) / Real.sqrt n) * Real.log n +
+            (n : ℝ) ^ (-3 : ℝ) := by ring
         _ = _ := by rw [hquot]
 
 /-- A matching with exactly two exposed cycles has at most two ordered marks. -/
@@ -502,7 +506,7 @@ theorem eventually_lintegral_card_incomparableEligibleAnchorMarks_le {b A : ℝ}
     ∀ᶠ n : ℕ in atTop, ∀ B : ℝ,
       (∫⁻ x, (Nat.card (IncomparableEligibleAnchorMarks b A B x) : ℝ≥0∞)
         ∂continuousScoreLaw n) ≤
-        2 * ENNReal.ofReal (twoForwardWindowConstant b A * Real.sqrt n * Real.log n +
+        2 * ENNReal.ofReal (meanUpperConstant * twoForwardWindowConstant b A * Real.sqrt n * Real.log n +
           (n : ℝ) ^ (-3 : ℝ)) := by
   filter_upwards [eventually_sum_measure_scoreStableTwoForwardWindowEvent_le hb hA] with n h
   intro B

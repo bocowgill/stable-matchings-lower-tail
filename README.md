@@ -39,16 +39,18 @@ The formal statement and finite model retain their original attribution.
 
 ## Proof outline
 
-1. Transfer the finite model to independent continuous scores and use that
-   representation to prove Pittel's first-moment asymptotic.
+1. Transfer the finite model to independent continuous scores and bound the
+   expected number of stable matchings by a constant times $n\log n$.
 2. Count a subfamily of stable matchings indexed by a rotation and compatible
    earlier rotations. Each counted matching determines its index. Bound the
    resulting random count's conditional center from below at scale
    $n\log n$.
-3. Bound the centered second moment using pair estimates. A switch sends the
-   comparable-pair contribution to an endpoint event involving counts of
-   short cycles. The proof chooses the cycle cutoff after fixing the lower
-   scale, so reducing the variance bound preserves the lower threshold.
+3. Bound the centered second moment by counting pairs of matchings. For the
+   residual from comparable anchors, the switch removes one selected shared
+   rotation from the earlier undo set if present. The resulting incomparable
+   endpoints recover the two switched choices. Only that rotation's original
+   membership in the earlier set is unknown, giving at most two inputs per
+   ordered pair. Short-cycle estimates bound the resulting pairs.
 
 ## Local verification
 

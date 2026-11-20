@@ -1,5 +1,6 @@
 module
 
+public import LennonPittel.MeanUpperBound
 public import LennonPittel.PivotSingletonLength
 public import LennonPittel.SingletonAnchorCounting
 public import LennonPittel.SingletonDiagonalExceptions
@@ -217,16 +218,23 @@ theorem singletonLengthBudget_le {n : ℕ} (hn : 0 < n) :
       add_le_add le_rfl (div_le_div_of_nonneg_left (by norm_num) (by positivity) hp)
     _ = _ := by ring
 
+/-- Constant from the mean bound and the fixed-mark singleton estimate. -/
+noncomputable def singletonMomentScale : ℝ := meanUpperConstant * Real.exp 5
+
+theorem singletonMomentScale_pos : 0 < singletonMomentScale := by
+  unfold singletonMomentScale meanUpperConstant
+  positivity
+
 /-- Under the uniform preference law, the expected number of realized
 rotations has the square-root scale times the logarithm. -/
 theorem eventually_lintegral_profileSingletonAnchorCount_le :
     ∀ᶠ n : ℕ in atTop,
       (∫⁻ p, profileSingletonAnchorLengthWeight p (fun _ ↦ (1 : ℝ≥0∞))
         ∂(uniformProfile n).toMeasure) ≤
-        ENNReal.ofReal ((Real.exp 5 * (108 + 48 * Real.exp 4)) *
+        ENNReal.ofReal ((singletonMomentScale * (108 + 48 * Real.exp 4)) *
           Real.sqrt n * Real.log n + (n : ℝ) ^ (-3 : ℝ)) := by
   filter_upwards [eventually_lintegral_profileSingletonAnchorLengthWeight_le_gaussian,
-    eventually_expectedNumStableMatchings_le_sizeLog, eventually_gt_atTop (0 : ℕ)]
+    eventually_expectedNumStableMatchings_le_meanUpper, eventually_gt_atTop (0 : ℕ)]
     with n h hmean hn
   have hn₀ : 0 < (n : ℝ) := Nat.cast_pos.mpr hn
   have hl : 0 ≤ Real.log (n : ℝ) := Real.log_nonneg (by exact_mod_cast hn)
@@ -246,21 +254,23 @@ theorem eventually_lintegral_profileSingletonAnchorCount_le :
   have h' := h (fun _ ↦ 1) 1 (fun _ ↦ zero_le_one) (fun _ _ ↦ le_rfl)
   simp only [ENNReal.ofReal_one, one_mul] at h'
   refine h'.trans ?_
+  have hm₀ := mul_nonneg meanUpperConstant_nonneg (mul_nonneg hn₀.le hl)
   calc
-    _ ≤ ENNReal.ofReal ((n : ℝ) * Real.log n) * ENNReal.ofReal (C / Real.sqrt n) +
+    _ ≤ ENNReal.ofReal (meanUpperConstant * ((n : ℝ) * Real.log n)) * ENNReal.ofReal (C / Real.sqrt n) +
         ENNReal.ofReal ((n : ℝ) ^ (-3 : ℝ)) :=
       add_le_add
         (mul_le_mul' (ENNReal.ofReal_le_ofReal hmean) (ENNReal.ofReal_le_ofReal hsum)) le_rfl
     _ = _ := by
-      rw [← ENNReal.ofReal_mul (mul_nonneg hn₀.le hl),
-        ← ENNReal.ofReal_add (by dsimp [C]; positivity) (by positivity)]
+      rw [← ENNReal.ofReal_mul hm₀,
+        ← ENNReal.ofReal_add (mul_nonneg hm₀ (by dsimp [C]; positivity)) (by positivity)]
       congr 1
       have hs : Real.sqrt (n : ℝ) ^ 2 = n := Real.sq_sqrt hn₀.le
       have hquot : (n : ℝ) / Real.sqrt n = Real.sqrt n :=
         (div_eq_iff (Real.sqrt_pos.mpr hn₀).ne').mpr (by simpa only [pow_two] using hs.symm)
       calc
-        _ = C * ((n : ℝ) / Real.sqrt n) * Real.log n + (n : ℝ) ^ (-3 : ℝ) := by ring
-        _ = _ := by rw [hquot]
+        _ = meanUpperConstant * C * ((n : ℝ) / Real.sqrt n) * Real.log n +
+            (n : ℝ) ^ (-3 : ℝ) := by ring
+        _ = _ := by rw [hquot]; unfold C singletonMomentScale; ring
 
 open scoped Classical in
 /-- The expected total length of rotations longer than the square-root
@@ -271,12 +281,12 @@ theorem eventually_lintegral_profileSingletonAnchorLongLength_le :
         ENNReal.ofReal (if a * Real.sqrt (n : ℝ) < (k : ℝ) then k else 0))
         ∂(uniformProfile n).toMeasure) ≤
         ENNReal.ofReal ((n : ℝ) * Real.log n) *
-          ENNReal.ofReal (Real.exp 5 *
+          ENNReal.ofReal (singletonMomentScale *
             ((54 * Real.exp 4) / Real.sqrt (Real.sqrt (n : ℝ)) +
               144 * Real.exp 16 * Real.exp (-a))) +
           ENNReal.ofReal ((n : ℝ) ^ (-2 : ℝ)) := by
   filter_upwards [eventually_lintegral_profileSingletonAnchorLengthWeight_le_gaussian,
-    eventually_expectedNumStableMatchings_le_sizeLog, eventually_gt_atTop (0 : ℕ)]
+    eventually_expectedNumStableMatchings_le_meanUpper, eventually_gt_atTop (0 : ℕ)]
     with n h hmean hn
   intro a
   let g (k : ℕ) : ℝ := if a * Real.sqrt (n : ℝ) < (k : ℝ) then k else 0
@@ -315,7 +325,11 @@ theorem eventually_lintegral_profileSingletonAnchorLongLength_le :
       _ = _ := by rw [← Real.rpow_add (Nat.cast_pos.mpr hn)]; norm_num
   refine (h g n hg hcap).trans ?_
   rw [he]
-  exact add_le_add
-    (mul_le_mul' (ENNReal.ofReal_le_ofReal hmean) (ENNReal.ofReal_le_ofReal hsum)) le_rfl
+  refine add_le_add ((mul_le_mul' (ENNReal.ofReal_le_ofReal hmean)
+    (ENNReal.ofReal_le_ofReal hsum)).trans_eq ?_) le_rfl
+  simp only [singletonMomentScale, ENNReal.ofReal_mul meanUpperConstant_nonneg,
+    ENNReal.ofReal_mul (Real.exp_pos 5).le,
+    ENNReal.ofReal_mul (mul_nonneg meanUpperConstant_nonneg (Real.exp_pos 5).le)]
+  ac_rfl
 
 end LennonPittelFormalization

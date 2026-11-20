@@ -97,24 +97,18 @@ theorem scorePairSizeMass_toReal_le_forced
   apply scorePairSizeMass_toReal_le_of_envelope hs hfactor
   exact (h.trans (mul_le_mul_left hcount _)).trans_eq (by ac_rfl)
 
-/-- On regular sizes and the required endpoint score domain, the background-cycle
-exception multiplies the size-bin kernel by its conditional probability bound. -/
-theorem eventually_scorePairSizeMass_toReal_le_background {α : ℝ}
-    (hα : 0 < α) (hα' : α < 1 / 10) :
-    ∀ᶠ n : ℕ in atTop,
-      ∀ {R : ScoreProfile n → Matching n → Matching n → Prop},
-      (∀ μ ν, MeasurableSet {x | R x μ ν}) →
-      (∀ x μ ν, R x μ ν → InResidualEndpointScoreDomain x ν) →
-      ∀ {s}, ValidPairSizes n s → RegularPairSizes n α s →
-      (scorePairSizeMass (fun x μ ν ↦
-        R x μ ν ∧ x ∈ backgroundShortCycleException μ ν (pivotShortCycleCutoff α n)) s).toReal ≤
-        (1200 / Real.log (pivotShortCycleCutoff α n : ℝ)) *
-          (Real.exp 72 * (1 + Real.log n) * twoStablePairSizeKernel n s) := by
-  filter_upwards [eventually_measure_backgroundException_le_labeledStablePairMassBound hα hα',
-    eventually_backgroundShortCutoff_large hα] with n hbackground hL
-  intro R hR hdom s hs hreg
+/-- On finite regular sizes, the actual background size-bin mass pays `1200 / log L`. -/
+theorem scorePairSizeMass_toReal_le_background_regular
+    {L : ℕ} (hn : 0 < n) (hbudget : BackgroundCycleBudget n L)
+    {R : ScoreProfile n → Matching n → Matching n → Prop}
+    (hR : ∀ μ ν, MeasurableSet {x | R x μ ν})
+    (hdom : ∀ x μ ν, R x μ ν → InResidualEndpointScoreDomain x ν)
+    {s : ℕ × ℕ} (hs : ValidPairSizes n s) (hreg : RegularOrientationPair n L s) :
+    (scorePairSizeMass
+      (fun x μ ν ↦ R x μ ν ∧ x ∈ backgroundShortCycleException μ ν L) s).toReal ≤
+      (1200 / Real.log (L : ℝ)) *
+        (Real.exp 72 * (1 + Real.log n) * twoStablePairSizeKernel n s) := by
   rcases s with ⟨u, v⟩
-  let L := pivotShortCycleCutoff α n
   let Q : ScoreProfile n → Matching n → Matching n → Prop :=
     fun x μ ν ↦ R x μ ν ∧ x ∈ backgroundShortCycleException μ ν L
   have hQ : ∀ μ ν, MeasurableSet {x | Q x μ ν} := fun μ ν ↦
@@ -130,7 +124,8 @@ theorem eventually_scorePairSizeMass_toReal_le_background {α : ℝ}
       intro x hx
       exact ⟨⟨⟨hx.1.1, hx.1.2.1, hx.1.2.2.1, hx.1.2.2.2.1⟩, hx.2⟩, hx.1.2.2.2.2⟩
     refine (measure_mono hsub).trans ?_
-    have h := hbackground hor (by simpa only [hu, hv] using hs)
+    have h := measure_backgroundException_le_labeledStablePairMassBound_regular hn hbudget hor
+      (by simpa only [hu, hv] using hs)
       (by simpa only [hu, hv] using hreg) (E := E) (Eventually.of_forall fun _ hx ↦
         ⟨(scoreFixedOrientationPairEvent_data hx).1, (scoreFixedOrientationPairEvent_data hx).2.1,
           (scoreFixedOrientationPairEvent_data hx).2.2.1, hdom _ _ _ hx.1.2.2.2⟩)
@@ -138,7 +133,7 @@ theorem eventually_scorePairSizeMass_toReal_le_background {α : ℝ}
   have h := scorePairSizeMass_le_card_mul hQ (u, v) (fun _ ↦ True) (fun _ ↦ True)
     (fun _ _ ↦ Eventually.of_forall fun _ _ ↦ ⟨trivial, trivial⟩) hfixed
   have hcount := card_labeledOrientationPairs_unrestricted_le hs.2.2
-  have ha : 0 ≤ a := div_nonneg (by norm_num) (by have := hL.2; dsimp only [L]; linarith)
+  have ha : 0 ≤ a := div_nonneg (by norm_num) (by have := hbudget.log_cutoff; linarith)
   apply scorePairSizeMass_toReal_le_of_envelope hs ha
   exact (h.trans (mul_le_mul_left hcount _)).trans_eq (mul_left_comm _ _ _)
 

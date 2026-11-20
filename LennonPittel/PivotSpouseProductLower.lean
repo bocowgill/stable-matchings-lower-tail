@@ -4,7 +4,7 @@ public import LennonPittel.CoexposureSpouseShells
 public import LennonPittel.StableMaleSpouseRowLaw
 public import LennonPittel.IndependentFlagLowerTail
 public import LennonPittel.FiniteProductDensity
-public import LennonPittel.PittelFirstMoment
+public import LennonPittel.MeanUpperBound
 public import LennonPittel.SmallSpouseTotalLog
 
 /-!
@@ -204,18 +204,6 @@ theorem sum_measure_stable_spouseProduct_lt_le (n : ℕ) :
       Finset.sum_le_sum fun μ _ ↦ measure_stable_spouseProduct_lt_le μ
     _ = _ := by rw [← Finset.sum_mul, sum_measure_scoreStable_eq_expected]
 
-/-- A convenient eventual upper bound following from Pittel's verified
-first-moment asymptotic. -/
-theorem eventually_expectedNumStableMatchings_le_sizeLog :
-    ∀ᶠ n : ℕ in atTop, expectedNumStableMatchings n ≤ (n : ℝ) * Real.log n := by
-  have he : (Real.exp 1)⁻¹ < 1 :=
-    inv_lt_one_of_one_lt₀ ((by norm_num : (1 : ℝ) < 2).trans Real.exp_one_gt_two)
-  filter_upwards [(tendsto_order.mp tendsto_expectedNumStableMatchings_div_size_log).2 1 he,
-    eventually_gt_atTop (1 : ℕ)] with n h hn
-  have hn' : 1 < (n : ℝ) := by exact_mod_cast hn
-  have hnorm : 0 < (n : ℝ) * Real.log n := mul_pos (by linarith) (Real.log_pos hn')
-  simpa only [one_mul] using (div_le_iff₀ hnorm).mp h.le
-
 private theorem eventually_sizeSq_mul_exp_le_neg_rpow (p : ℝ) :
     ∀ᶠ n : ℕ in atTop, (n : ℝ) ^ (2 : ℕ) * Real.exp (-(n : ℝ) / 128) ≤
       (n : ℝ) ^ (-p) := by
@@ -244,18 +232,12 @@ theorem eventually_sum_measure_stable_spouseProduct_lt_le (p : ℝ) :
         {x | IsScoreStable x μ ∧ 2 ≤ femaleSpouseTotal x μ ∧
           maleSpouseTotal x μ * femaleSpouseTotal x μ < (n : ℝ) / 128}) ≤
         ENNReal.ofReal ((n : ℝ) ^ (-p)) := by
-  filter_upwards [eventually_expectedNumStableMatchings_le_sizeLog,
-    eventually_gt_atTop (1 : ℕ), eventually_sizeSq_mul_exp_le_neg_rpow p] with n hm hn hrate
-  have hn₀ : 0 < (n : ℝ) := by exact_mod_cast (show 0 < n by omega)
-  have hlog : Real.log (n : ℝ) ≤ n :=
-    (Real.log_le_sub_one_of_pos hn₀).trans (by linarith)
-  have hm' : expectedNumStableMatchings n ≤ (n : ℝ) ^ 2 := by
-    rw [sq]
-    exact hm.trans (mul_le_mul_of_nonneg_left hlog hn₀.le)
+  filter_upwards [eventually_expectedNumStableMatchings_le_sizeSq,
+    eventually_sizeSq_mul_exp_le_neg_rpow p] with n hm hrate
   refine (sum_measure_stable_spouseProduct_lt_le n).trans ?_
   calc
     _ ≤ ENNReal.ofReal ((n : ℝ) ^ (2 : ℕ)) * ENNReal.ofReal (Real.exp (-(n : ℝ) / 128)) :=
-      mul_le_mul_left (ENNReal.ofReal_le_ofReal hm') _
+      mul_le_mul_left (ENNReal.ofReal_le_ofReal hm) _
     _ = ENNReal.ofReal ((n : ℝ) ^ (2 : ℕ) * Real.exp (-(n : ℝ) / 128)) :=
       (ENNReal.ofReal_mul (by positivity)).symm
     _ ≤ _ := ENNReal.ofReal_le_ofReal hrate

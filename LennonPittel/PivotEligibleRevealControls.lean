@@ -42,10 +42,6 @@ def reverseRawArcError (s u : ℝ) : ℝ := 2 * (2 * s + u)
 /-- In a relaxed arc the pivot participants may also be omitted. -/
 def reverseRelaxedArcInflation (s u p : ℝ) : ℝ := 1 + 2 * (2 * s + u + p)
 
-/-- The lower arc error depends on the maximum normalized male score
-and on the exponential truncation of the reverse competitor integral. -/
-noncomputable def reverseLowerArcError (X s : ℝ) : ℝ := 14 * s + Real.exp (-X / 4)
-
 /-- Forward information exposing precisely the pivot and bounding the
 total of its nonnegative male score increments. -/
 def eligiblePivotRevealSet {n : ℕ} (d : DiagonalScorePairs n)
@@ -164,15 +160,13 @@ theorem momentControls (h : ReverseMaskGeometry d flag ρ s u p) (K : ℕ) (D C 
     (hlabel : ∀ k ∈ Finset.Icc 2 K,
       reverseGoodLabelLoss k (reverseSpouseWeights μ d) (ρ.support.map μ.toEmbedding)
         (ENNReal.ofReal (s + u)) ≤ ENNReal.ofReal (1 / 4))
-    (hδ : let δ := reverseLowerArcError (reverseDiagonalMaleTotal d) s
-      0 ≤ δ ∧ δ ≤ 1 ∧ (K : ℝ) * δ ≤ 1 / 4)
+    (hδ : (K : ℝ) * reverseLowerArcError (reverseDiagonalMaleTotal d) ≤ 1 / 4)
     (hu : reverseRawArcError s u ≤ C / Real.sqrt (n : ℝ))
     (ht : ∀ᵐ z ∂offDiagonalScoreLaw n,
       ∀ row, Function.Injective ((splitScorePairs μ).symm (d, z) row)) :
     ReverseCompatibilityControls μ ρ d flag (eligiblePivotRevealSet d flag ρ D)
         (reverseRelaxedArcInflation s u p) D ∧
-      ReverseUnfilteredControls μ ρ d flag K (ENNReal.ofReal (s + u))
-        (s * reverseDiagonalMaleTotal d) (reverseLowerArcError (reverseDiagonalMaleTotal d) s) ∧
+      ReverseUnfilteredControls μ ρ d flag K (ENNReal.ofReal (s + u)) ∧
       ReverseFilterUpperControls d flag (reverseRawArcError s u) C := by
   let X := reverseDiagonalMaleTotal d
   let U := eligiblePivotRevealSet d flag ρ D
@@ -197,10 +191,7 @@ theorem momentControls (h : ReverseMaskGeometry d flag ρ s u p) (K : ℕ) (D C 
       fun _ hv ↦ hv.2.1, fun _ hv ↦ hv.2.2, ht, ?_⟩
     exact ae_isExposedRotation_of_forwardReveal_subset μ ρ d flag U hU
       (fun _ hv ↦ (hv.1 ρ).mpr rfl) ht
-  · refine ⟨h.forbidden_weight_le, hlabel, h.total_ge_two, fun i q ↦
-      (hhalf _ hraw').trans (h.competitor_ge q), h.max_score, ?_, hδ.1, hδ.2.1, hδ.2.2⟩
-    change 14 * (s * X) / X + Real.exp (-X / 4) ≤ 14 * s + Real.exp (-X / 4)
-    rw [mul_div_assoc, mul_div_cancel_right₀ _ hX.ne']
+  · exact ⟨h.forbidden_weight_le, hlabel, hδ⟩
   · refine ⟨show 0 ≤ reverseRawArcError s u from mul_nonneg (by norm_num) hraw, hu,
       fun i q ↦ (total_div_one_add_two_mul_le_remaining hX.le hraw hraw').trans
         (h.competitor_ge q), fun i ↦ (hhalf _ (by linarith [h.max_nonneg])).trans
@@ -356,7 +347,6 @@ structure EligibleReverseMomentCertificate {n : ℕ} (μ ρ : Matching n)
   compatibility : ReverseCompatibilityControls μ ρ d flag (eligiblePivotRevealSet d flag ρ D)
     (reverseRelaxedArcInflation s u p) D
   unfiltered : ReverseUnfilteredControls μ ρ d flag K (ENNReal.ofReal (s + u))
-    (s * reverseDiagonalMaleTotal d) (reverseLowerArcError (reverseDiagonalMaleTotal d) s)
   upper : ReverseFilterUpperControls d flag (reverseRawArcError s u) 2
   relaxed_inflation_ge_one : 1 ≤ reverseRelaxedArcInflation s u p
   compatibility_budget : ENNReal.ofReal (reverseRelaxedArcInflation s u p) ^ K *
@@ -421,7 +411,7 @@ theorem eventually_eligibleReverseMomentCertificate (K L : ℕ → ℕ)
   have hlarge : ∀ᶠ n in atTop, 2 * (1 + B) ≤ R n :=
     (Real.tendsto_sqrt_atTop.comp (tendsto_natCast_atTop_atTop (R := ℝ))).eventually_ge_atTop _
   filter_upwards [hraw, hK, hfilter, hlarge,
-    eventually_reverseArcLowerBudget_uniform (C := Cx) hκ hc]
+    eventually_reverseArcLowerBudget_uniform hκ hc]
     with n hraw_n hKn hf hlarge_n hlow
   dsimp only
   intro μ ρ d flag D hgeom hXrate hweights hD ht
@@ -430,7 +420,6 @@ theorem eventually_eligibleReverseMomentCertificate (K L : ℕ → ℕ)
   let a := reverseRelaxedArcInflation (s n) (u n) p
   have hn : 0 < n := by omega
   have hR : 0 < R n := Real.sqrt_pos.2 (by exact_mod_cast hn)
-  have hX : 0 < X := by linarith [hgeom.total_ge_two]
   have hraw' : 2 * s n + u n ≤ 1 / R n := hraw_n.2
   have hq₁ : 2 * s n + u n + p ≤ (1 + B) / R n := by
     rw [add_div]
@@ -460,12 +449,7 @@ theorem eventually_eligibleReverseMomentCertificate (K L : ℕ → ℕ)
     exact (reverseGoodLabelLoss_le_of_squareRoot hn hH hB (by norm_num : 0 ≤ (1 : ℝ))
       (hk'.trans hKn.2) _ _ _ hweights hgeom.pivot_weight_le hη).trans
       (ENNReal.ofReal_le_ofReal hsmallLabel)
-  have hδlo : let δlo := reverseLowerArcError X (s n)
-      0 ≤ δlo ∧ δlo ≤ 1 ∧ (K n : ℝ) * δlo ≤ 1 / 4 := by
-    have hratio : s n * X / X = s n := mul_div_cancel_right₀ _ hX.ne'
-    have h := hlow (K n) X (s n * X) hXrate
-      (mul_nonneg hgeom.max_nonneg hX.le) (hratio.le) hKn.2
-    simpa only [reverseLowerArcError, mul_div_assoc, hratio] using h
+  have hδlo := hlow (K n) X hXrate hKn.2
   have hupper : δ n ≤ 2 / R n := by
     change 2 * (2 * s n + u n) ≤ 2 / R n
     calc

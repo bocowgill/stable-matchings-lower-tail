@@ -109,12 +109,12 @@ theorem tendsto_rotationLengthCutoff_div_size :
   change (n : ℝ) ^ (-(1 / 8) : ℝ) = (n : ℝ) ^ (7 / 8 : ℝ) / (n : ℝ)
   rw [show (-(1 / 8) : ℝ) = 7 / 8 - 1 by norm_num, Real.rpow_sub hn', Real.rpow_one]
 
-private theorem real_longRotationBound_le {x : ℝ} (hx : 1 ≤ x) :
-    (x * Real.log x * (Real.exp 5 *
+private theorem real_longRotationBound_le {x D : ℝ} (hx : 1 ≤ x) (hD : 0 ≤ D) :
+    (x * Real.log x * (D *
       ((54 * Real.exp 4) / Real.sqrt (Real.sqrt x) +
         144 * Real.exp 16 * Real.exp (-(x ^ (3 / 8 : ℝ))))) + x ^ (-2 : ℝ)) /
       (x ^ (7 / 8 : ℝ)) ≤
-    (Real.exp 5 * (54 * Real.exp 4 + 144 * Real.exp 16)) *
+    (D * (54 * Real.exp 4 + 144 * Real.exp 16)) *
       (Real.log x / x ^ (1 / 8 : ℝ)) + x ^ (-2 : ℝ) := by
   have hx' : 0 < x := zero_lt_one.trans_le hx
   have hsqrt : Real.sqrt (Real.sqrt x) = x ^ (1 / 4 : ℝ) := by
@@ -137,7 +137,7 @@ private theorem real_longRotationBound_le {x : ℝ} (hx : 1 ≤ x) :
   rw [add_div]
   refine add_le_add ?_ ?_
   · calc
-      _ ≤ (x * Real.log x * (Real.exp 5 *
+      _ ≤ (x * Real.log x * (D *
           ((54 * Real.exp 4) / x ^ (1 / 4 : ℝ) +
             144 * Real.exp 16 * (1 / x ^ (1 / 4 : ℝ))))) /
           x ^ (7 / 8 : ℝ) := by
@@ -158,7 +158,7 @@ private theorem real_longRotationBound_le {x : ℝ} (hx : 1 ≤ x) :
 theorem tendsto_measure_longStableExposedRotationEvent :
     Tendsto (fun n ↦ (uniformProfile n).toMeasure
       (longStableExposedRotationEvent n (rotationLengthCutoff n))) atTop (𝓝 0) := by
-  let C := Real.exp 5 * (54 * Real.exp 4 + 144 * Real.exp 16)
+  let C := singletonMomentScale * (54 * Real.exp 4 + 144 * Real.exp 16)
   have hlog : Tendsto (fun n : ℕ ↦ Real.log n / (n : ℝ) ^ (1 / 8 : ℝ)) atTop (𝓝 0) :=
     (isLittleO_log_rpow_atTop (by norm_num : (0 : ℝ) < 1 / 8)).tendsto_div_nhds_zero.comp
       tendsto_natCast_atTop_atTop
@@ -189,9 +189,10 @@ theorem tendsto_measure_longStableExposedRotationEvent :
   rw [longStableExposedRotationEvent_eq_longSingletonRotationEvent]
   refine (ENNReal.le_div_iff_mul_le (Or.inl (ENNReal.ofReal_ne_zero_iff.mpr hc))
     (Or.inl ENNReal.ofReal_ne_top)).mpr hm |>.trans ?_
-  rw [← ENNReal.ofReal_mul hnl, ← ENNReal.ofReal_add (mul_nonneg hnl (by positivity))
-    (by positivity), ← ENNReal.ofReal_div_of_pos hc]
-  exact ENNReal.ofReal_le_ofReal (real_longRotationBound_le hn₁')
+  rw [← ENNReal.ofReal_mul hnl, ← ENNReal.ofReal_add
+    (mul_nonneg hnl (mul_nonneg singletonMomentScale_pos.le (by positivity))) (by positivity),
+    ← ENNReal.ofReal_div_of_pos hc]
+  exact ENNReal.ofReal_le_ofReal (real_longRotationBound_le hn₁' singletonMomentScale_pos.le)
 
 /-- The same cutoff holds for the preference profile drawn from continuous scores. -/
 theorem tendsto_measure_score_longStableExposedRotationEvent :

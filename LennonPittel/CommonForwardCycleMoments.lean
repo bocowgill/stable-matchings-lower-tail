@@ -2,7 +2,7 @@ module
 
 public import LennonPittel.PivotTwoCycleForest
 public import LennonPittel.ReverseIIDLabelGood
-public import LennonPittel.ShortCycleChebyshev
+public import Mathlib.NumberTheory.Harmonic.Bounds
 public import Mathlib.Probability.Moments.Variance
 
 /-!
@@ -311,13 +311,11 @@ theorem commonForwardLabelLoss_le_of_weight_le (C : Finset ι) (p : ι → ℝ) 
         (mul_le_mul_of_nonneg_left hC (Nat.cast_nonneg _))
     _ = _ := by ring
 
-/-- The reference weight of common length-`k` cycles is between the
-good-label fraction divided by `k` and `1 / k`. -/
-theorem commonForwardCycleReferenceWeight_bounds (C : Finset ι) {k : ℕ} (hk : 2 ≤ k)
+/-- The reference weight of common length-`k` cycles is at least the good-label fraction over `k`. -/
+theorem commonForwardCycleReferenceWeight_lower (C : Finset ι) {k : ℕ} (hk : 2 ≤ k)
     (p : ι → ℝ) (hp : ∀ i, 0 ≤ p i) (hp₁ : ∑ i, p i = 1) :
     (1 - commonForwardLabelLoss C p k) / (k : ℝ) ≤
-      (∑ σ ∈ commonForwardCycles C {k}, ∏ i ∈ σ.support, p i) ∧
-      (∑ σ ∈ commonForwardCycles C {k}, ∏ i ∈ σ.support, p i) ≤ 1 / (k : ℝ) := by
+      ∑ σ ∈ commonForwardCycles C {k}, ∏ i ∈ σ.support, p i := by
   classical
   let r (i : ι) := ENNReal.ofReal (p i)
   let E : ℝ := ∑ s ∈ C.powersetCard k, ∏ i ∈ s, p i
@@ -366,33 +364,18 @@ theorem commonForwardCycleReferenceWeight_bounds (C : Finset ι) {k : ℕ} (hk :
     refine h.trans_eq (Finset.sum_congr ?_ fun _ _ ↦ rfl)
     ext x
     simp [iidLabelGood, mem_injectiveCommonLabels]
-  have hup : B ≤ 1 := by
-    calc
-      B ≤ ∑ x : Fin k → ι, ∏ i, r (x i) :=
-        Finset.sum_le_sum_of_subset (Finset.subset_univ _)
-      _ = 1 := by rw [← Fintype.prod_sum]; simp [hr]
   have hE0 : 0 ≤ (k.factorial : ℝ) * E :=
     mul_nonneg (Nat.cast_nonneg _) (Finset.sum_nonneg fun _ _ ↦
       Finset.prod_nonneg fun i _ ↦ hp i)
   have hlow' := (ENNReal.ofReal_le_ofReal_iff hE0).mp (hB ▸ hlow)
-  have hup' : (k.factorial : ℝ) * E ≤ 1 := by
-    apply (ENNReal.ofReal_le_ofReal_iff zero_le_one).mp
-    simpa only [← hB, ENNReal.ofReal_one] using hup
   have hk0 : 0 < (k : ℝ) := by exact_mod_cast (show 0 < k by omega)
   have hf : (k : ℝ) * ((k - 1).factorial : ℝ) = (k.factorial : ℝ) := by
     exact_mod_cast Nat.mul_factorial_pred (show k ≠ 0 by omega)
   rw [sum_commonForwardCycles_singleton C hk p]
-  change (1 - commonForwardLabelLoss C p k) / (k : ℝ) ≤
-    ((k - 1).factorial : ℝ) * E ∧ ((k - 1).factorial : ℝ) * E ≤ 1 / (k : ℝ)
-  constructor
-  · apply (div_le_iff₀ hk0).mpr
-    calc
-      _ ≤ (k.factorial : ℝ) * E := hlow'
-      _ = _ := by rw [← hf]; ring
-  · apply (le_div_iff₀ hk0).mpr
-    calc
-      _ = (k.factorial : ℝ) * E := by rw [← hf]; ring
-      _ ≤ _ := hup'
+  apply (div_le_iff₀ hk0).mpr
+  calc
+    _ ≤ (k.factorial : ℝ) * E := hlow'
+    _ = _ := by rw [← hf]; ring
 
 end ReferenceWeights
 
@@ -400,56 +383,35 @@ section NearRankOne
 
 variable [MeasurableSpace (Option ι)] [MeasurableSingletonClass (Option ι)]
 
-/-- Rank-one comparison for off-diagonal arcs between common labels. -/
-def CommonForwardArcBounds (ν : ι → Measure (Option ι)) (C : Finset ι) (p : ι → ℝ)
+/-- Each off-diagonal arc on the common labels has at least this fraction of its reference weight. -/
+def CommonForwardArcLower (ν : ι → Measure (Option ι)) (C : Finset ι) (p : ι → ℝ)
     (δ : ℝ) : Prop :=
-  ∀ i ∈ C, ∀ j ∈ C, i ≠ j → (ν i).real {some j} ∈ Icc ((1 - δ) * p j) ((1 + δ) * p j)
+  ∀ i ∈ C, ∀ j ∈ C, i ≠ j → (1 - δ) * p j ≤ (ν i).real {some j}
 
-/-- Expected common cycles of a fixed length, with the arc error accumulated
-over exactly the rows of a cycle. -/
-theorem integral_commonForwardCycles_singleton_bounds (ν : ι → Measure (Option ι))
+/-- Multiplying the row bounds along each cycle gives a lower bound at a fixed length. -/
+theorem integral_commonForwardCycles_singleton_lower (ν : ι → Measure (Option ι))
     [∀ i, IsProbabilityMeasure (ν i)] (C : Finset ι) {k : ℕ} (hk : 2 ≤ k)
     (p : ι → ℝ) (hp : ∀ i, 0 ≤ p i) (hp₁ : ∑ i, p i = 1)
-    {δ : ℝ} (hδ : δ ∈ Icc 0 1) (harc : CommonForwardArcBounds ν C p δ) :
+    {δ : ℝ} (hδ : δ ≤ 1) (harc : CommonForwardArcLower ν C p δ) :
     (1 - δ) ^ k * ((1 - commonForwardLabelLoss C p k) / (k : ℝ)) ≤
-      (∫ f, (realizedForwardCycleCount (commonForwardCycles C {k}) f : ℝ) ∂(Measure.pi ν)) ∧
-    (∫ f, (realizedForwardCycleCount (commonForwardCycles C {k}) f : ℝ) ∂(Measure.pi ν)) ≤
-      (1 + δ) ^ k / (k : ℝ) := by
+      ∫ f, (realizedForwardCycleCount (commonForwardCycles C {k}) f : ℝ) ∂Measure.pi ν := by
   classical
-  let S := commonForwardCycles C {k}
-  have hfac : ∀ σ ∈ S, ∀ a : ℝ,
-      (∏ i ∈ σ.support, a * p (σ i)) = a ^ k * ∏ i ∈ σ.support, p i := by
-    intro σ hσ a
-    have hcard := Finset.mem_singleton.mp (mem_commonForwardCycles.mp hσ).2.2
-    rw [Finset.prod_mul_distrib, Finset.prod_const, hcard,
-      σ.prod_comp σ.support p (fun _ hi ↦ Equiv.Perm.mem_support.mpr hi)]
-  have hprod : ∀ σ ∈ S,
-      (1 - δ) ^ k * (∏ i ∈ σ.support, p i) ≤ (Measure.pi ν).real (forwardCycleEvent σ) ∧
-      (Measure.pi ν).real (forwardCycleEvent σ) ≤ (1 + δ) ^ k * ∏ i ∈ σ.support, p i := by
-    intro σ hσ
-    obtain ⟨hcyc, hsub, _⟩ := mem_commonForwardCycles.mp hσ
-    have h (i : ι) (hi : i ∈ σ.support) :=
-      harc i (hsub hi) (σ i) (hsub (Equiv.Perm.apply_mem_support.mpr hi))
-        (Ne.symm (Equiv.Perm.mem_support.mp hi))
-    rw [measureReal_forwardCycleEvent ν hcyc, ← hfac σ hσ (1 - δ), ← hfac σ hσ (1 + δ)]
-    exact ⟨Finset.prod_le_prod₀ (fun i _ ↦ mul_nonneg (sub_nonneg.mpr hδ.2) (hp _))
-      (fun i hi ↦ (h i hi).1), Finset.prod_le_prod₀ (fun _ _ ↦ measureReal_nonneg)
-      (fun i hi ↦ (h i hi).2)⟩
-  have hw := commonForwardCycleReferenceWeight_bounds C hk p hp hp₁
+  have h0 := sub_nonneg.mpr hδ
   rw [integral_realizedForwardCycleCount]
-  constructor
-  · calc
-      _ ≤ (1 - δ) ^ k * ∑ σ ∈ S, ∏ i ∈ σ.support, p i :=
-        mul_le_mul_of_nonneg_left hw.1 (pow_nonneg (sub_nonneg.mpr hδ.2) k)
-      _ = _ := Finset.mul_sum ..
-      _ ≤ _ := Finset.sum_le_sum fun σ hσ ↦ (hprod σ hσ).1
-  · calc
-      _ ≤ ∑ σ ∈ S, (1 + δ) ^ k * ∏ i ∈ σ.support, p i :=
-        Finset.sum_le_sum fun σ hσ ↦ (hprod σ hσ).2
-      _ = (1 + δ) ^ k * ∑ σ ∈ S, ∏ i ∈ σ.support, p i := (Finset.mul_sum ..).symm
-      _ ≤ (1 + δ) ^ k * (1 / (k : ℝ)) :=
-        mul_le_mul_of_nonneg_left hw.2 (pow_nonneg (by linarith only [hδ.1]) k)
-      _ = _ := by rw [mul_one_div]
+  calc
+    _ ≤ (1 - δ) ^ k * ∑ σ ∈ commonForwardCycles C {k}, ∏ i ∈ σ.support, p i :=
+      mul_le_mul_of_nonneg_left (commonForwardCycleReferenceWeight_lower C hk p hp hp₁)
+        (pow_nonneg h0 k)
+    _ = _ := Finset.mul_sum ..
+    _ ≤ _ := by
+      refine Finset.sum_le_sum fun σ hσ ↦ ?_
+      obtain ⟨hcyc, hC, hlen⟩ := mem_commonForwardCycles.mp hσ
+      rw [measureReal_forwardCycleEvent ν hcyc, ← Finset.mem_singleton.mp hlen,
+        ← Finset.prod_const, ← σ.prod_comp σ.support p (fun _ hi ↦ Equiv.Perm.mem_support.mpr hi),
+        ← Finset.prod_mul_distrib]
+      exact Finset.prod_le_prod₀ (fun i _ ↦ mul_nonneg h0 (hp _)) fun i hi ↦
+        harc i (hC hi) (σ i) (hC (Equiv.Perm.apply_mem_support.mpr hi))
+          (Ne.symm (Equiv.Perm.mem_support.mp hi))
 
 /-- The expectation of the length window is the sum of the length-specific expectations. -/
 theorem integral_commonForwardCycleCount_eq_sum_lengths (ν : Measure (ι → Option ι))
@@ -487,73 +449,11 @@ theorem commonForwardLabelLoss_mono (C : Finset ι) (p : ι → ℝ) (hp : ∀ i
     (Finset.sum_nonneg fun _ _ ↦ sq_nonneg _))
     (mul_le_mul_of_nonneg_right (by exact_mod_cast hab) (Finset.sum_nonneg fun i _ ↦ hp i))
 
-/-- The expected short-cycle count is squeezed by explicit multiples of its harmonic reference. -/
-theorem integral_commonForwardCycleCount_bounds (ν : ι → Measure (Option ι))
-    [∀ i, IsProbabilityMeasure (ν i)] (C : Finset ι) (L : ℕ)
-    (p : ι → ℝ) (hp : ∀ i, 0 ≤ p i) (hp₁ : ∑ i, p i = 1)
-    {δ : ℝ} (hδ : δ ∈ Icc 0 1) (harc : CommonForwardArcBounds ν C p δ) :
-    ((1 - δ) ^ L * (1 - commonForwardLabelLoss C p L)) * commonForwardCycleHarmonic L ≤
-      (∫ f, (commonForwardCycleCount C L f : ℝ) ∂(Measure.pi ν)) ∧
-    (∫ f, (commonForwardCycleCount C L f : ℝ) ∂(Measure.pi ν)) ≤
-      (1 + δ) ^ L * commonForwardCycleHarmonic L := by
-  rw [integral_commonForwardCycleCount_eq_sum_lengths]
-  have h0 : 0 ≤ 1 - δ := sub_nonneg.mpr hδ.2
-  have h1 : 1 - δ ≤ 1 := sub_le_self _ hδ.1
-  have h1' : 1 ≤ 1 + δ := le_add_of_nonneg_right hδ.1
-  unfold commonForwardCycleHarmonic
-  constructor
-  · rw [Finset.mul_sum]
-    refine Finset.sum_le_sum fun k hk ↦ ?_
-    obtain ⟨hk₂, hkL⟩ := Finset.mem_Icc.mp hk
-    have hk0 : 0 < (k : ℝ) := by exact_mod_cast (show 0 < k by omega)
-    by_cases hgood : commonForwardLabelLoss C p L ≤ 1
-    · have h := (integral_commonForwardCycles_singleton_bounds ν C hk₂ p hp hp₁ hδ harc).1
-      refine le_trans ?_ h
-      rw [mul_assoc, mul_one_div]
-      exact mul_le_mul (pow_le_pow_of_le_one h0 h1 hkL)
-        (div_le_div_of_nonneg_right (sub_le_sub_left (commonForwardLabelLoss_mono C p hp hkL) 1)
-          hk0.le) (div_nonneg (sub_nonneg.mpr hgood) hk0.le) (pow_nonneg h0 _)
-    · exact le_trans (mul_nonpos_of_nonpos_of_nonneg
-        (mul_nonpos_of_nonneg_of_nonpos (pow_nonneg h0 _)
-          (sub_nonpos.mpr (le_of_lt (lt_of_not_ge hgood)))) (one_div_nonneg.mpr hk0.le))
-        (integral_nonneg fun _ ↦ Nat.cast_nonneg _)
-  · rw [Finset.mul_sum]
-    refine Finset.sum_le_sum fun k hk ↦ ?_
-    obtain ⟨hk₂, hkL⟩ := Finset.mem_Icc.mp hk
-    refine (integral_commonForwardCycles_singleton_bounds ν C hk₂ p hp hp₁ hδ harc).2.trans ?_
-    rw [mul_one_div]
-    exact div_le_div_of_nonneg_right (pow_le_pow_right₀ h1' hkL) (Nat.cast_nonneg _)
-
-/-- If the mean lies between the supplied bounds, the count's lower-tail
-probability is at most the upper mean bound divided by the squared lower gap. -/
-theorem measure_lt_realizedForwardCycleCount_le (ν : ι → Measure (Option ι))
-    [∀ i, IsProbabilityMeasure (ν i)] (S : Finset (Equiv.Perm ι))
-    (hS : ∀ σ ∈ S, σ.IsCycle) {t m M : ℝ} (hgap : t < m)
-    (hm : m ≤ ∫ f, (realizedForwardCycleCount S f : ℝ) ∂(Measure.pi ν))
-    (hM : (∫ f, (realizedForwardCycleCount S f : ℝ) ∂(Measure.pi ν)) ≤ M) :
-    (Measure.pi ν) {f | (realizedForwardCycleCount S f : ℝ) < t} ≤
-      ENNReal.ofReal (M / (m - t) ^ 2) := by
-  let X (f : ι → Option ι) := (realizedForwardCycleCount S f : ℝ)
-  let a := ∫ f, X f ∂(Measure.pi ν)
-  have hsub : {f | X f < t} ⊆ {f | m - t ≤ |X f - a|} := by
-    intro f hf
-    change X f < t at hf
-    change m - t ≤ |X f - a|
-    calc
-      _ ≤ a - X f := sub_le_sub hm hf.le
-      _ ≤ |X f - a| := by rw [abs_sub_comm]; exact le_abs_self _
-  exact (measure_mono hsub).trans
-    ((meas_ge_le_variance_div_sq (realizedForwardCycleCount_memLp (Measure.pi ν) S)
-      (sub_pos.mpr hgap)).trans (ENNReal.ofReal_le_ofReal
-        (div_le_div_of_nonneg_right ((variance_realizedForwardCycleCount_le ν S hS).trans hM)
-          (sq_nonneg _))))
-
 omit [Fintype ι] [DecidableEq ι] [MeasurableSpace (Option ι)]
     [MeasurableSingletonClass (Option ι)] in
-/-- The inverse-length sum differs from the logarithm by at most one. -/
-theorem commonForwardCycleHarmonic_bounds {L : ℕ} (hL : 2 ≤ L) :
-    Real.log (L : ℝ) - 1 ≤ commonForwardCycleHarmonic L ∧
-      commonForwardCycleHarmonic L ≤ Real.log (L : ℝ) := by
+/-- Removing the length-one term costs at most one in the harmonic lower bound. -/
+theorem commonForwardCycleHarmonic_lower {L : ℕ} (hL : 2 ≤ L) :
+    Real.log (L : ℝ) - 1 ≤ commonForwardCycleHarmonic L := by
   have h₁ : 1 ∈ Finset.Icc 1 L := Finset.mem_Icc.mpr ⟨le_rfl, by omega⟩
   have he : (Finset.Icc 1 L).erase 1 = Finset.Icc 2 L := by
     ext j
@@ -565,59 +465,75 @@ theorem commonForwardCycleHarmonic_bounds {L : ℕ} (hL : 2 ≤ L) :
     Nat.cast_one, inv_one] at hh
   have hlog : Real.log (L : ℝ) ≤ Real.log ((L + 1 : ℕ) : ℝ) :=
     Real.log_le_log (by positivity) (by exact_mod_cast Nat.le_succ L)
-  exact ⟨by
-    unfold commonForwardCycleHarmonic
-    simp only [one_div]
-    linarith only [hh, hlog],
-    by simpa only [commonForwardCycleHarmonic, min_self] using shortCycleHarmonic_le_log L L hL⟩
+  unfold commonForwardCycleHarmonic
+  simp only [one_div]
+  linarith only [hh, hlog]
 
-/-- Explicit short-cycle lower tail for small accumulated arc and label errors.
-The value `9 / 10` is the threshold used in the two-stable-pair argument. -/
+/-- Small cumulative arc and label losses preserve a logarithmic mean. -/
+theorem integral_commonForwardCycleCount_lower_log (ν : ι → Measure (Option ι))
+    [∀ i, IsProbabilityMeasure (ν i)] (C : Finset ι) {L : ℕ} (hL : 2 ≤ L)
+    (p : ι → ℝ) (hp : ∀ i, 0 ≤ p i) (hp₁ : ∑ i, p i = 1)
+    {δ : ℝ} (hδ : δ ∈ Icc 0 1) (harc : CommonForwardArcLower ν C p δ)
+    (harcLoss : (L : ℝ) * δ ≤ 1 / 100) (hlabelLoss : commonForwardLabelLoss C p L ≤ 1 / 100)
+    (hlog : 100 ≤ Real.log (L : ℝ)) :
+    (19 / 20 : ℝ) * Real.log (L : ℝ) ≤
+      ∫ f, (commonForwardCycleCount C L f : ℝ) ∂Measure.pi ν := by
+  let c : ℝ := 99 / 100
+  have hc : 0 ≤ c := by norm_num [c]
+  have hpow : c ≤ (1 - δ) ^ L := by
+    have h := one_add_mul_le_pow (a := -δ) (by linarith only [hδ.2]) L
+    simp only [← sub_eq_add_neg, mul_neg] at h
+    dsimp [c]
+    linarith only [h, harcLoss]
+  rw [integral_commonForwardCycleCount_eq_sum_lengths]
+  calc
+    _ ≤ (c * c) * (Real.log (L : ℝ) - 1) := by dsimp [c]; linarith only [hlog]
+    _ ≤ (c * c) * commonForwardCycleHarmonic L :=
+      mul_le_mul_of_nonneg_left (commonForwardCycleHarmonic_lower hL) (mul_nonneg hc hc)
+    _ ≤ _ := by
+      rw [commonForwardCycleHarmonic, Finset.mul_sum]
+      refine Finset.sum_le_sum fun k hk ↦ ?_
+      obtain ⟨hk₂, hkL⟩ := Finset.mem_Icc.mp hk
+      refine le_trans ?_ (integral_commonForwardCycles_singleton_lower ν C hk₂ p hp hp₁ hδ.2 harc)
+      rw [mul_assoc, mul_one_div]
+      have hlabel := (commonForwardLabelLoss_mono C p hp hkL).trans hlabelLoss
+      exact mul_le_mul (hpow.trans (pow_le_pow_of_le_one (sub_nonneg.mpr hδ.2)
+        (sub_le_self _ hδ.1) hkL)) (div_le_div_of_nonneg_right (by dsimp [c]; linarith only [hlabel])
+          (Nat.cast_nonneg k)) (div_nonneg hc (Nat.cast_nonneg k))
+          (pow_nonneg (sub_nonneg.mpr hδ.2) _)
+
+/-- The cycle variance is at most its mean. Applying Chebyshev at one nineteenth of the mean
+bounds the probability of falling below nine tenths of the logarithm. -/
 theorem measure_lt_commonForwardCycleCount_le (ν : ι → Measure (Option ι))
     [∀ i, IsProbabilityMeasure (ν i)] (C : Finset ι) {L : ℕ} (hL : 2 ≤ L)
     (p : ι → ℝ) (hp : ∀ i, 0 ≤ p i) (hp₁ : ∑ i, p i = 1)
-    {δ : ℝ} (hδ : δ ∈ Icc 0 1) (harc : CommonForwardArcBounds ν C p δ)
+    {δ : ℝ} (hδ : δ ∈ Icc 0 1) (harc : CommonForwardArcLower ν C p δ)
     (harcLoss : (L : ℝ) * δ ≤ 1 / 100) (hlabelLoss : commonForwardLabelLoss C p L ≤ 1 / 100)
     (hlog : 100 ≤ Real.log (L : ℝ)) :
     (Measure.pi ν) {f | (commonForwardCycleCount C L f : ℝ) < (9 / 10 : ℝ) * Real.log L} ≤
       ENNReal.ofReal (1200 / Real.log (L : ℝ)) := by
   let B := Real.log (L : ℝ)
+  let X (f : ι → Option ι) := (commonForwardCycleCount C L f : ℝ)
+  let m := ∫ f, X f ∂Measure.pi ν
+  have hm : (19 / 20 : ℝ) * B ≤ m :=
+    integral_commonForwardCycleCount_lower_log ν C hL p hp hp₁ hδ harc harcLoss hlabelLoss hlog
   have hB : 0 < B := by linarith only [hlog]
-  have hH := commonForwardCycleHarmonic_bounds hL
-  have hmom := integral_commonForwardCycleCount_bounds ν C L p hp hp₁ hδ harc
-  have hpowLo : (99 / 100 : ℝ) ≤ (1 - δ) ^ L := by
-    have h := one_add_mul_le_pow (a := -δ) (by linarith only [hδ.2]) L
-    simp only [← sub_eq_add_neg, mul_neg] at h
-    linarith only [h, harcLoss]
-  have hpowHi : (1 + δ) ^ L ≤ 3 := by
-    calc
-      _ ≤ Real.exp δ ^ L := pow_le_pow_left₀ (by linarith only [hδ.1])
-        (by simpa only [add_comm] using Real.add_one_le_exp δ) _
-      _ = Real.exp ((L : ℝ) * δ) := (Real.exp_nat_mul δ L).symm
-      _ ≤ Real.exp 1 := Real.exp_le_exp.mpr (harcLoss.trans (by norm_num))
-      _ ≤ _ := Real.exp_one_lt_three.le
-  have hlo : (19 / 20 : ℝ) * B ≤
-      ∫ f, (commonForwardCycleCount C L f : ℝ) ∂(Measure.pi ν) := by
-    refine le_trans ?_ hmom.1
-    have hnonneg : 0 ≤ B - 1 := by linarith only [hlog]
-    calc
-      _ ≤ (99 / 100 : ℝ) * (99 / 100) * (B - 1) := by linarith only [hlog]
-      _ ≤ _ := mul_le_mul (mul_le_mul hpowLo (by linarith only [hlabelLoss]) (by norm_num)
-        (pow_nonneg (sub_nonneg.mpr hδ.2) _)) hH.1 hnonneg
-        (mul_nonneg (pow_nonneg (sub_nonneg.mpr hδ.2) _)
-          (by linarith only [hlabelLoss]))
-  have hhi : (∫ f, (commonForwardCycleCount C L f : ℝ) ∂(Measure.pi ν)) ≤ 3 * B :=
-    hmom.2.trans (mul_le_mul hpowHi hH.2
-      (Finset.sum_nonneg fun _ _ ↦ by positivity) (by norm_num))
-  have h := measure_lt_realizedForwardCycleCount_le ν (commonForwardCycles C (Finset.Icc 2 L))
-    (fun _ hσ ↦ (mem_commonForwardCycles.mp hσ).1)
-    (t := (9 / 10 : ℝ) * B) (by linarith only [hB]) hlo hhi
-  refine h.trans (ENNReal.ofReal_le_ofReal (le_of_eq ?_))
-  change 3 * B / ((19 / 20 : ℝ) * B - (9 / 10 : ℝ) * B) ^ 2 = 1200 / B
-  have hgap : (19 / 20 : ℝ) * B - (9 / 10 : ℝ) * B = B / 20 := by ring
-  rw [hgap]
-  field_simp [hB.ne']
-  ring
+  have hm₀ : 0 < m := by linarith only [hB, hm]
+  have hsub : {f | X f < 9 / 10 * B} ⊆ {f | m / 19 ≤ |X f - m|} := by
+    intro f hf
+    change X f < 9 / 10 * B at hf
+    change m / 19 ≤ |X f - m|
+    rw [abs_sub_comm]
+    exact le_trans (by linarith only [hf, hm] : m / 19 ≤ m - X f) (le_abs_self _)
+  have hvar : Var[X; Measure.pi ν] ≤ m :=
+    variance_realizedForwardCycleCount_le ν _ (fun _ hσ ↦ (mem_commonForwardCycles.mp hσ).1)
+  refine (measure_mono hsub).trans ((meas_ge_le_variance_div_sq
+    (realizedForwardCycleCount_memLp (Measure.pi ν) _) (by positivity : 0 < m / 19)).trans
+    (ENNReal.ofReal_le_ofReal ((div_le_div_of_nonneg_right hvar (sq_nonneg _)).trans ?_)))
+  calc
+    m / (m / 19) ^ 2 = 361 / m := by field_simp; ring
+    _ ≤ 380 / B := (div_le_div_iff₀ hm₀ hB).mpr (by linarith only [hm])
+    _ ≤ 1200 / B := div_le_div_of_nonneg_right (by norm_num) hB.le
 
 end NearRankOne
 

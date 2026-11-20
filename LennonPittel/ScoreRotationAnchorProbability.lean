@@ -37,8 +37,8 @@ theorem exists_eventually_measure_scoreWalkBandEndpoints_diff_anchorAbundance_le
     ((Real.tendsto_sqrt_atTop.comp
       (tendsto_natCast_atTop_atTop (R := ℝ))).const_mul_atTop hb).eventually_ge_atTop 81
   have himp := eventually_scoreWalkAnchorAbundance_of_bandAbundance K hK
-  have hg := tendsto_measure_badCoexposureScores_zero_of_mean_upper (C := 1) zero_le_one
-    (by simpa only [one_mul] using eventually_expectedNumStableMatchings_le_sizeLog)
+  have hg := tendsto_measure_badCoexposureScores_zero_of_mean_upper
+    meanUpperConstant_nonneg eventually_expectedNumStableMatchings_le_meanUpper
   have hη₀ := ENNReal.ofReal_pos.mpr (show 0 < η / 3 by positivity)
   filter_upwards [himp, hband, hg.eventually_lt_const hη₀,
     tendsto_measure_badNonTinyRotation_zero.eventually_lt_const hη₀]

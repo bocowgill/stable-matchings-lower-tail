@@ -1,12 +1,12 @@
 module
 
-public import LennonPittel.PittelFirstMoment
+public import LennonPittel.MeanUpperBound
 
 /-!
 # Lower-count criterion for the Lennon–Pittel tail
 
 Once the stable-matching count is bounded away from zero in probability on
-the `n log n` scale, Pittel's first moment transfers the bound to every
+the `n log n` scale, an upper bound on the mean transfers the result to every
 threshold that vanishes relative to the mean.
 -/
 
@@ -27,7 +27,7 @@ theorem stableMatchingCountTail_antitone (n : ℕ) :
   fun _ _ hab ↦ measure_mono fun _ hp ↦ hab.trans hp
 
 /-- A lower bound away from zero in probability at the `n log n` scale
-implies the Lennon–Pittel tail, using the verified mean asymptotic. -/
+implies the Lennon–Pittel tail when the mean is at most a constant times that scale. -/
 theorem lennonPittel_of_uniform_lower_scale
     (hlower : ∀ δ : ℝ, 0 < δ → ∃ c : ℝ, 0 < c ∧
       ∀ᶠ n : ℕ in atTop,
@@ -36,9 +36,8 @@ theorem lennonPittel_of_uniform_lower_scale
     Tendsto (fun n : ℕ ↦ (uniformProfile n).toMeasure
       {p | (numStableMatchings p : ℝ) ≥ ε n * expectedNumStableMatchings n})
       atTop (𝓝 1) := by
-  have hsmall : Tendsto (fun n : ℕ ↦
-      ε n * (expectedNumStableMatchings n / ((n : ℝ) * Real.log n))) atTop (𝓝 0) := by
-    simpa only [zero_mul] using hε.mul tendsto_expectedNumStableMatchings_div_size_log
+  have hsmall : Tendsto (fun n ↦ |ε n| * meanUpperConstant) atTop (𝓝 0) := by
+    simpa using hε.abs.mul_const meanUpperConstant
   refine tendsto_order.2 ⟨?_, ?_⟩
   · intro a ha
     have hat : a ≠ ⊤ := ha.ne_top
@@ -52,13 +51,18 @@ theorem lennonPittel_of_uniform_lower_scale
       exact ENNReal.ofReal_lt_ofReal_iff_of_nonneg ENNReal.toReal_nonneg |>.2 (by
         dsimp [δ]
         linarith)
-    filter_upwards [(tendsto_order.mp hsmall).2 c hc, hlarge, eventually_gt_atTop (1 : ℕ)]
-      with n hs hl hn
-    have hn' : (1 : ℝ) < n := by exact_mod_cast hn
-    have hnorm : 0 < (n : ℝ) * Real.log n :=
-      mul_pos ((zero_lt_one : (0 : ℝ) < 1).trans hn') (Real.log_pos hn')
+    filter_upwards [(tendsto_order.mp hsmall).2 c hc, hlarge,
+      eventually_expectedNumStableMatchings_le_meanUpper, eventually_ge_atTop (1 : ℕ)]
+      with n hs hl hm hn
+    have hnorm : 0 ≤ (n : ℝ) * Real.log n :=
+      mul_nonneg (Nat.cast_nonneg _) (Real.log_nonneg (by exact_mod_cast hn))
     have hthreshold : ε n * expectedNumStableMatchings n ≤ c * ((n : ℝ) * Real.log n) :=
-      (div_le_iff₀ hnorm).mp (by simpa only [mul_div_assoc] using hs.le)
+      calc
+        _ ≤ |ε n| * expectedNumStableMatchings n :=
+          mul_le_mul_of_nonneg_right (le_abs_self _) (integral_nonneg fun _ ↦ Nat.cast_nonneg _)
+        _ ≤ |ε n| * (meanUpperConstant * ((n : ℝ) * Real.log n)) :=
+          mul_le_mul_of_nonneg_left hm (abs_nonneg _)
+        _ ≤ _ := by rw [← mul_assoc]; exact mul_le_mul_of_nonneg_right hs.le hnorm
     exact haδ.trans_le (hl.trans (stableMatchingCountTail_antitone n hthreshold))
   · intro a ha
     exact Eventually.of_forall fun n ↦

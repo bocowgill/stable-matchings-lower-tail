@@ -312,7 +312,7 @@ private theorem eventually_measure_badNonTinyRotation_le :
     ∀ᶠ n : ℕ in atTop, continuousScoreLaw n (badNonTinyRotation n) ≤
       continuousScoreLaw n (goodCoexposureScores n)ᶜ + ENNReal.ofReal (2 ^ 80 / (n : ℝ)) := by
   filter_upwards [eventually_measure_stable_allTinyLongRotation_le,
-    eventually_expectedNumStableMatchings_le_sizeLog, eventually_gt_atTop (0 : ℕ)]
+    eventually_expectedNumStableMatchings_le_sizeSq, eventually_gt_atTop (0 : ℕ)]
     with n hfixed hmean hn
   let G (μ : Matching n) : Set (ScoreProfile n) :=
     {x | IsScoreStable x μ ∧ GoodSpouseScores x μ ∧ hasAllTinyLongRotation x μ}
@@ -323,9 +323,6 @@ private theorem eventually_measure_badNonTinyRotation_le :
         hx.2.2 μ hμ, hrot⟩)
     · exact Or.inl hx
   have hn' : 0 < (n : ℝ) := Nat.cast_pos.mpr hn
-  have hmean' : expectedNumStableMatchings n ≤ (n : ℝ) ^ 2 := by
-    have hlog : Real.log (n : ℝ) ≤ n := (Real.log_le_sub_one_of_pos hn').trans (by linarith)
-    simpa only [pow_two] using hmean.trans (mul_le_mul_of_nonneg_left hlog hn'.le)
   refine (measure_mono hsub).trans ((measure_union_le _ _).trans (add_le_add_right ?_ _))
   calc
     _ ≤ ∑' μ, continuousScoreLaw n (G μ) := measure_iUnion_le G
@@ -337,7 +334,7 @@ private theorem eventually_measure_badNonTinyRotation_le :
         ENNReal.ofReal (2 ^ 80 * (n : ℝ) ^ (-3 : ℝ)) := by
       rw [← Finset.sum_mul, sum_measure_scoreStable_eq_expected]
     _ ≤ ENNReal.ofReal ((n : ℝ)^2) * ENNReal.ofReal (2 ^ 80 * (n : ℝ) ^ (-3 : ℝ)) :=
-      mul_le_mul' (ENNReal.ofReal_le_ofReal hmean') le_rfl
+      mul_le_mul' (ENNReal.ofReal_le_ofReal hmean) le_rfl
     _ = _ := by
       rw [← ENNReal.ofReal_mul (by positivity)]
       apply congrArg ENNReal.ofReal
@@ -350,8 +347,8 @@ private theorem eventually_measure_badNonTinyRotation_le :
 /-- The probability that any stable matching exposes a long all-tiny cycle vanishes. -/
 theorem tendsto_measure_badNonTinyRotation_zero :
     Tendsto (fun n ↦ continuousScoreLaw n (badNonTinyRotation n)) atTop (𝓝 0) := by
-  have h₁ := tendsto_measure_badCoexposureScores_zero_of_mean_upper (C := 1) (by norm_num)
-    (by simpa only [one_mul] using eventually_expectedNumStableMatchings_le_sizeLog)
+  have h₁ := tendsto_measure_badCoexposureScores_zero_of_mean_upper
+    meanUpperConstant_nonneg eventually_expectedNumStableMatchings_le_meanUpper
   have h₂ := ENNReal.tendsto_ofReal (tendsto_const_div_atTop_nhds_zero_nat (2 ^ 80 : ℝ))
   rw [ENNReal.ofReal_zero] at h₂
   have h := h₁.add h₂

@@ -1,7 +1,7 @@
 module
 
 public import LennonPittel.ForwardSuccessorOutcome
-public import LennonPittel.TruncatedScoreRowIntegral
+public import LennonPittel.RowCompetition
 public import LennonPittel.TwoStableScoreProduct
 
 /-!
@@ -427,178 +427,6 @@ theorem jointCommonRowSuccessorEvent_mass {n : ℕ} {μ ν : Matching n}
   exact commonRowSuccessorPairEvent_mass hx (hR _) (hb j) (fun _ ↦ hR _)
     (fun k ↦ hb k.val) (fun _ ↦ le_max_right _ _)
 
-private theorem sum_commonCompetitors_eq {n : ℕ} {μ ν : Matching n}
-    (i : CommonMan μ ν) (j : CommonRowCandidate i) (g : Fin n → ℝ) :
-    (∑ k : {k : CommonRowCandidate i // k ≠ j}, g k.val.val) =
-      (∑ k, g k) - g i.val - g j.val := by
-  classical
-  have h₁ : (∑ k : {k : CommonRowCandidate i // k ≠ j}, g k.val.val) =
-      (∑ k : CommonRowCandidate i, g k.val) - g j.val := by
-    rw [← Finset.sum_subtype (Finset.univ.erase j) (p := (· ≠ j)) (by simp)
-      (fun k : CommonRowCandidate i ↦ g k.val)]
-    linarith only [Finset.sum_erase_add Finset.univ
-      (fun k : CommonRowCandidate i ↦ g k.val) (Finset.mem_univ j)]
-  rw [h₁, ← Finset.sum_subtype (Finset.univ.erase i.val) (p := (i.val ≠ ·))
-    (by simp [ne_comm]) g]
-  linarith only [Finset.sum_erase_add Finset.univ g (Finset.mem_univ i.val)]
-
-/-- Comparison with the second matching's normalized female spouse scores.
-The lower bound loses the male score, the squared normalized score mass, and
-an exponential endpoint term; the upper bound loses the male score and the
-weights of the omitted self and target. -/
-theorem jointCommonRowSuccessorEvent_mass_bounds {n : ℕ} {μ ν : Matching n}
-    (d : JointSpouseScores μ ν) (i : CommonMan μ ν) (j : CommonRowCandidate i)
-    (hx : jointManSpouseScoreRight d i.val ∈ Ico 0 1)
-    (hL : ∀ w, jointWomanSpouseScoreLeft d w ∈ Icc 0 1)
-    (hR : ∀ w, jointWomanSpouseScoreRight d w ∈ Icc 0 1) :
-    let x := jointManSpouseScoreRight d i.val
-    let y := fun k : Fin n ↦ jointWomanSpouseScoreRight d (ν k)
-    let Y := ∑ k, y k
-    let p := fun k ↦ y k / Y
-    let δ := x + p i.val + p j.val
-    0 < Y →
-      ENNReal.ofReal ((1 - min 1 (x + 2 * (∑ k, (p k) ^ 2) + Real.exp (-Y / 2))) *
-        p j.val) ≤ jointCommonRowLaw d i (scoreRowSuccessorEvent (jointRightDiagonal d) i.val j) ∧
-      (δ ≤ 1 / 2 → jointCommonRowLaw d i
-        (scoreRowSuccessorEvent (jointRightDiagonal d) i.val j) ≤
-          ENNReal.ofReal ((1 + 2 * δ) * p j.val)) := by
-  intro x y Y p δ hY
-  let K := {k : CommonRowCandidate i // k ≠ j}
-  let a (k : K) := jointCommonEligibility d i k.val.val
-  let aj := jointCommonEligibility d i j.val
-  let S := ∑ k, (p k) ^ 2
-  let z := Real.exp (-Y / 2)
-  have hweight (k : Fin n) : (1 - x) * y k ≤ jointCommonEligibility d i k ∧
-      jointCommonEligibility d i k ≤ y k :=
-    commonEligibilityWeight_bounds hx (hR _) ⟨(hL _).1.trans (le_max_left _ _),
-      max_le (hL _).2 (hR _).2⟩
-  have hnonneg (k : Fin n) : 0 ≤ jointCommonEligibility d i k :=
-    (mul_nonneg (sub_nonneg.mpr hx.2.le) (hR _).1).trans (hweight k).1
-  have ha (k : K) : a k ∈ Icc 0 1 :=
-    ⟨hnonneg _, (hweight _).2.trans (hR _).2⟩
-  have hs : 0 ≤ S := Finset.sum_nonneg fun _ _ ↦ sq_nonneg _
-  have hp (k : Fin n) : 0 ≤ p k := div_nonneg (hR _).1 hY.le
-  have hz : 0 ≤ z := (Real.exp_pos _).le
-  have hmass₀ : 0 ≤ scoreRowMass Finset.univ a 0 1 := by
-    unfold scoreRowMass
-    refine intervalIntegral.integral_nonneg zero_le_one fun t ht ↦ ?_
-    exact Finset.prod_nonneg fun k _ ↦ sub_nonneg.mpr
-      ((mul_le_mul_of_nonneg_right ht.2 (ha k).1).trans
-        (by simpa only [one_mul] using (ha k).2))
-  rw [jointCommonRowSuccessorEvent_mass d i j hx hL hR]
-  change ENNReal.ofReal ((1 - min 1 (x + 2 * S + z)) * p j.val) ≤
-    ENNReal.ofReal (aj * scoreRowMass Finset.univ a 0 1) ∧
-      (δ ≤ 1 / 2 → ENNReal.ofReal (aj * scoreRowMass Finset.univ a 0 1) ≤
-        ENNReal.ofReal ((1 + 2 * δ) * p j.val))
-  constructor
-  · apply ENNReal.ofReal_le_ofReal
-    by_cases hδ : x + 2 * S + z ≤ 1
-    · rw [min_eq_right hδ]
-      have hsum : ∑ k : K, a k ≤ Y := calc
-        _ ≤ ∑ k : K, y k.val.val := Finset.sum_le_sum fun k _ ↦ (hweight _).2
-        _ = Y - y i.val - y j.val := sum_commonCompetitors_eq i j y
-        _ ≤ Y := by linarith only [(hR (ν i.val)).1, (hR (ν j.val)).1]
-      have hsquare : ∑ k : K, (a k) ^ 2 ≤ Y ^ 2 * S := calc
-        _ ≤ ∑ k : K, (y k.val.val) ^ 2 := Finset.sum_le_sum fun k _ ↦
-          pow_le_pow_left₀ (ha k).1 (hweight _).2 2
-        _ = (∑ k, (y k) ^ 2) - (y i.val) ^ 2 - (y j.val) ^ 2 :=
-          sum_commonCompetitors_eq i j (fun k ↦ (y k) ^ 2)
-        _ ≤ ∑ k, (y k) ^ 2 := by linarith only [sq_nonneg (y i.val), sq_nonneg (y j.val)]
-        _ = Y ^ 2 * S := by
-          dsimp only [S, p]
-          simp_rw [div_pow]
-          rw [← Finset.sum_div]
-          field_simp [hY.ne']
-      have hm := scoreRowMass_lower_truncated (J := Finset.univ) (a := a)
-        (fun k _ ↦ ha k) (show (1 / 2 : ℝ) ∈ Icc 0 1 by norm_num)
-        (fun k _ ↦ mul_le_of_le_one_right (by norm_num) (ha k).2) hY hsum hsquare
-      have hs' : 2 * (Y ^ 2 * S) / Y ^ 2 = 2 * S := by field_simp [hY.ne']
-      rw [hs', show -(Y * (1 / 2)) = -Y / 2 by ring] at hm
-      have hR₀ : 0 ≤ 1 - z - 2 * S := by linarith only [hδ, hx.1]
-      calc
-        _ ≤ ((1 - x) * (1 - z - 2 * S)) * p j.val := by
-          apply mul_le_mul_of_nonneg_right _ (hp _)
-          nlinarith only [mul_nonneg hx.1
-            (add_nonneg hz (mul_nonneg (by norm_num : (0 : ℝ) ≤ 2) hs))]
-        _ = ((1 - x) * y j.val) * ((1 - z - 2 * S) / Y) := by dsimp only [p]; ring
-        _ ≤ aj * ((1 - z - 2 * S) / Y) :=
-          mul_le_mul_of_nonneg_right (hweight _).1 (div_nonneg hR₀ hY.le)
-        _ ≤ _ := mul_le_mul_of_nonneg_left hm (hnonneg _)
-    · rw [min_eq_left (le_of_not_ge hδ), sub_self, zero_mul]
-      exact mul_nonneg (hnonneg _) hmass₀
-  · intro hδ
-    apply ENNReal.ofReal_le_ofReal
-    have hδ₀ : 0 ≤ δ := add_nonneg (add_nonneg hx.1 (hp _)) (hp _)
-    have hr₁ : 0 < 1 - δ := by linarith only [hδ]
-    have hr : 0 < (1 - δ) * Y := mul_pos hr₁ hY
-    have heq : (1 - δ) * Y = (1 - x) * Y - y i.val - y j.val := by
-      dsimp only [δ, p]
-      field_simp [hY.ne']
-      ring
-    have hsum : (1 - δ) * Y ≤ ∑ k : K, a k := calc
-      _ = (1 - x) * Y - y i.val - y j.val := heq
-      _ ≤ (1 - x) * (Y - y i.val - y j.val) := by
-        nlinarith only [mul_nonneg hx.1 ((hR (ν i.val)).1),
-          mul_nonneg hx.1 ((hR (ν j.val)).1)]
-      _ = (1 - x) * (∑ k : K, y k.val.val) := by rw [sum_commonCompetitors_eq]
-      _ ≤ _ := by
-        rw [Finset.mul_sum]
-        exact Finset.sum_le_sum fun k _ ↦ (hweight _).1
-    have hm : scoreRowMass Finset.univ a 0 1 ≤ 1 / ((1 - δ) * Y) := by
-      simpa using scoreRowMass_le_exp_tail (fun k _ ↦ (ha k).1) (fun k _ ↦ (ha k).2)
-        hr hsum le_rfl zero_le_one le_rfl
-    calc
-      _ ≤ y j.val * scoreRowMass Finset.univ a 0 1 :=
-        mul_le_mul_of_nonneg_right (hweight _).2 hmass₀
-      _ ≤ y j.val * (1 / ((1 - δ) * Y)) :=
-        mul_le_mul_of_nonneg_left hm (hR _).1
-      _ = (1 / (1 - δ)) * p j.val := by dsimp only [p]; field_simp [hr₁.ne', hY.ne']
-      _ ≤ _ := mul_le_mul_of_nonneg_right ((div_le_iff₀ hr₁).mpr (by
-        nlinarith only [mul_nonneg hδ₀ (show 0 ≤ 1 - 2 * δ by linarith only [hδ])])) (hp _)
-
-/-- A single relative error works for every common row and target whenever
-the common male score is at most `X` and all normalized female weights
-are at most `P`. This is the deterministic form of the uniform arc estimate. -/
-theorem jointCommonRowSuccessorEvent_mass_uniform {n : ℕ} {μ ν : Matching n}
-    (d : JointSpouseScores μ ν) (i : CommonMan μ ν) (j : CommonRowCandidate i)
-    (hx : jointManSpouseScoreRight d i.val ∈ Ico 0 1)
-    (hL : ∀ w, jointWomanSpouseScoreLeft d w ∈ Icc 0 1)
-    (hR : ∀ w, jointWomanSpouseScoreRight d w ∈ Icc 0 1) {X P : ℝ}
-    (hX : jointManSpouseScoreRight d i.val ≤ X) (hsmall : X + 2 * P ≤ 1 / 2) :
-    let Y := ∑ k : Fin n, jointWomanSpouseScoreRight d (ν k)
-    let p := fun k : Fin n ↦ jointWomanSpouseScoreRight d (ν k) / Y
-    let E := 2 * X + 4 * P + Real.exp (-Y / 2)
-    0 < Y → (∀ k, p k ≤ P) →
-      ENNReal.ofReal ((1 - E) * p j.val) ≤
-          jointCommonRowLaw d i (scoreRowSuccessorEvent (jointRightDiagonal d) i.val j) ∧
-      jointCommonRowLaw d i (scoreRowSuccessorEvent (jointRightDiagonal d) i.val j) ≤
-          ENNReal.ofReal ((1 + E) * p j.val) := by
-  intro Y p E hY hP
-  have hP₀ : 0 ≤ P := (div_nonneg (hR _).1 hY.le : 0 ≤ p j.val).trans (hP _)
-  have hX₀ : 0 ≤ X := hx.1.trans hX
-  have hp₀ (k : Fin n) : 0 ≤ p k := div_nonneg (hR _).1 hY.le
-  have hp : ∑ k, p k = 1 := by
-    dsimp only [p]
-    rw [← Finset.sum_div, div_self hY.ne']
-  have hsq : ∑ k, (p k) ^ 2 ≤ P := calc
-    _ ≤ ∑ k, P * p k := Finset.sum_le_sum fun k _ ↦ by
-      rw [sq]
-      exact mul_le_mul_of_nonneg_right (hP k) (hp₀ k)
-    _ = P := by rw [← Finset.mul_sum, hp, mul_one]
-  have hδ : jointManSpouseScoreRight d i.val + p i.val + p j.val ≤ X + 2 * P := by
-    linarith only [hX, hP i.val, hP j.val]
-  obtain ⟨hl, hu⟩ := jointCommonRowSuccessorEvent_mass_bounds d i j hx hL hR hY
-  refine ⟨le_trans (ENNReal.ofReal_le_ofReal ?_) hl,
-    le_trans (hu (hδ.trans hsmall)) (ENNReal.ofReal_le_ofReal ?_)⟩
-  · apply mul_le_mul_of_nonneg_right _ (hp₀ _)
-    apply sub_le_sub_left
-    refine (min_le_right _ _).trans ?_
-    dsimp only [E]
-    linarith only [hX, hsq, hX₀, hP₀]
-  · apply mul_le_mul_of_nonneg_right _ (hp₀ _)
-    dsimp only [E]
-    linarith only [hδ, (Real.exp_pos (-Y / 2)).le]
-
 /-- At almost every marked array, the conditional off-spouse law reconstructs
 tie-free scores and, on the marked nonblocking event, two stable matchings. -/
 theorem ae_jointSpouse_ae_stableScoreProfile {n : ℕ} (μ ν : Matching n) :
@@ -840,22 +668,48 @@ theorem jointCommonSuccessorLaw_some (d : JointSpouseScores μ ν)
     with r hr
   exact propext (forwardSuccessorOutcome_eq_some_iff (jointRightDiagonal d) i.val r j hr)
 
-/-- The uniform relative comparison holds for the finite arc law itself. -/
-theorem jointCommonSuccessorLaw_some_uniform (d : JointSpouseScores μ ν)
+/-- In a common row, the target has eligible mass at least `(1-x)yⱼ`.
+The other eligible masses sum to at most `Y`, so the target wins conditional
+on eligibility with probability at least `1/(1+Y)`. -/
+theorem jointCommonSuccessorLaw_some_lower (d : JointSpouseScores μ ν)
     (i : CommonMan μ ν) (j : CommonRowCandidate i)
     (hx : jointManSpouseScoreRight d i.val ∈ Ico 0 1)
     (hL : ∀ w, jointWomanSpouseScoreLeft d w ∈ Icc 0 1)
-    (hR : ∀ w, jointWomanSpouseScoreRight d w ∈ Icc 0 1) {X P : ℝ}
-    (hX : jointManSpouseScoreRight d i.val ≤ X) (hsmall : X + 2 * P ≤ 1 / 2) :
-    let Y := ∑ k : Fin n, jointWomanSpouseScoreRight d (ν k)
-    let p := fun k : Fin n ↦ jointWomanSpouseScoreRight d (ν k) / Y
-    let E := 2 * X + 4 * P + Real.exp (-Y / 2)
-    0 < Y → (∀ k, p k ≤ P) →
-      ENNReal.ofReal ((1 - E) * p j.val) ≤ jointCommonSuccessorLaw d i.val {some j.val} ∧
-      jointCommonSuccessorLaw d i.val {some j.val} ≤ ENNReal.ofReal ((1 + E) * p j.val) := by
-  dsimp only
-  rw [jointCommonSuccessorLaw_some d i j hx hL hR]
-  exact jointCommonRowSuccessorEvent_mass_uniform d i j hx hL hR hX hsmall
+    (hR : ∀ w, jointWomanSpouseScoreRight d w ∈ Icc 0 1) {X : ℝ}
+    (hX : jointManSpouseScoreRight d i.val ≤ X) :
+    let y := fun k : Fin n ↦ jointWomanSpouseScoreRight d (ν k)
+    let Y := ∑ k, y k
+    0 < Y → ENNReal.ofReal ((1 - (X + 1 / Y)) * (y j.val / Y)) ≤
+      jointCommonSuccessorLaw d i.val {some j.val} := by
+  intro y Y hY
+  let x := jointManSpouseScoreRight d i.val
+  let K := {k : CommonRowCandidate i // k ≠ j}
+  let a (k : K) := jointCommonEligibility d i k.val.val
+  have hw (k : Fin n) : (1 - x) * y k ≤ jointCommonEligibility d i k ∧
+      jointCommonEligibility d i k ≤ y k :=
+    commonEligibilityWeight_bounds hx (hR _) ⟨(hL _).1.trans (le_max_left _ _),
+      max_le (hL _).2 (hR _).2⟩
+  have h₀ (k : Fin n) : 0 ≤ jointCommonEligibility d i k :=
+    (mul_nonneg (sub_nonneg.mpr hx.2.le) (hR _).1).trans (hw k).1
+  have hsum : ∑ k : K, a k ≤ Y :=
+    Finset.sum_le_sum_of_injOn (fun k : K ↦ k.val.val)
+      (fun _ _ _ _ h ↦ Subtype.ext (Subtype.ext h)) (Finset.subset_univ _)
+      (fun _ _ ↦ (hw _).2) (fun _ _ _ ↦ (hR _).1)
+  have hm := scoreRowMass_lower_reciprocal (J := Finset.univ) (a := a)
+    (fun k _ ↦ ⟨h₀ _, (hw _).2.trans (hR _).2⟩) hsum
+  have hcoef : 1 - (X + 1 / Y) ≤ (1 - x) * Y / (1 + Y) := by
+    apply (le_div_iff₀ (by linarith only [hY])).mpr
+    have hgap : 0 ≤ (X - x) * Y := mul_nonneg (sub_nonneg.mpr hX) hY.le
+    nlinarith only [hgap, hx.1.trans hX, div_mul_cancel₀ (1 : ℝ) hY.ne',
+      one_div_nonneg.mpr hY.le]
+  rw [jointCommonSuccessorLaw_some d i j hx hL hR, jointCommonRowSuccessorEvent_mass d i j hx hL hR]
+  apply ENNReal.ofReal_le_ofReal
+  calc
+    _ ≤ (1 - x) * Y / (1 + Y) * (y j.val / Y) :=
+      mul_le_mul_of_nonneg_right hcoef (div_nonneg (hR _).1 hY.le)
+    _ = ((1 - x) * y j.val) * (1 / (1 + Y)) := by field_simp [hY.ne']
+    _ ≤ jointCommonEligibility d i j.val * scoreRowMass Finset.univ a 0 1 :=
+      mul_le_mul (hw _).1 hm (by positivity) (h₀ _)
 
 end FiniteOutcomes
 

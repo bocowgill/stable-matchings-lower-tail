@@ -5,7 +5,7 @@ public import LennonPittel.CoexposureSpouseShells
 public import LennonPittel.CoexposureSpouseMarginal
 
 /-!
-# The exceptional-score limit and the co-exposure refutation
+# The exceptional-score limit
 -/
 
 @[expose] public section
@@ -90,19 +90,5 @@ theorem tendsto_measure_badCoexposureScores_zero_of_mean_upper {C : ℝ} (hC : 0
   simp only [add_zero] at htotal
   exact tendsto_const_nhds.squeeze' htotal (Eventually.of_forall fun _ ↦ zero_le)
     (Eventually.of_forall badScoreMass_le_cutoffSums)
-
-/-- The co-exposure event at the dyadic threshold for reciprocal-log tolerance tends to zero,
-assuming the positive limiting mean ratio. This concerns co-exposure, not the stable-count tail. -/
-theorem tendsto_uniformProfile_coexposure_zero_of_mean_asymptotic {a : ℝ} (ha : 0 < a)
-    (hmean : Tendsto
-      (fun n : ℕ ↦ expectedNumStableMatchings n / ((n : ℝ) * Real.log n)) atTop (𝓝 a)) :
-    Tendsto (fun n ↦ (uniformProfile n).toMeasure
-      {p | HasCoexposedRotations p (coexposedRotationThreshold reciprocalLogTolerance n)})
-      atTop (𝓝 0) := by
-  obtain ⟨C, hC, hweight⟩ := eventually_lintegral_goodScoreCoexposureWeight_le_sqrt
-  have hupper := (eventual_target_lower_and_mean_upper_of_tendsto ha hmean).2
-  exact tendsto_uniformProfile_coexposure_zero_of_weight_growth
-    goodCoexposureScores measurableSet_goodCoexposureScores ha hC (by norm_num) hmean
-    (tendsto_measure_badCoexposureScores_zero_of_mean_upper (by positivity) hupper) hweight
 
 end LennonPittelFormalization

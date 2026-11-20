@@ -61,7 +61,7 @@ theorem eventually_hasForwardReferenceDeficit_of_singletonLengthGoodDiagonal :
     ∀ᶠ n : ℕ in atTop, ∀ d ∈ singletonLengthGoodDiagonal n,
       HasForwardReferenceDeficit d (3 * (n : ℝ) ^ (-3 / 4 : ℝ)) := by
   filter_upwards [eventually_hasForwardReferenceDeficit] with n h d hd
-  exact h d hd.2.1 hd.2.2.1 hd.1.1 hd.1.2.1 hd.1.2.2 hd.2.2.2.2.1 hd.2.2.2.2.2
+  exact h d hd.2.1 hd.2.2.1 hd.1.1 hd.1.2.1 hd.1.2.2 hd.2.2.2.2.2
 
 private def badSingletonSmallTotal {n : ℕ} (μ : Matching n) : Set (ScoreProfile n) :=
   {x | IsScoreStable x μ ∧ femaleSpouseTotal x μ < (9 / 10 : ℝ) * Real.log n}
@@ -190,19 +190,15 @@ private theorem eventually_sum_badSingletonMaleScore_le :
     ∀ᶠ n : ℕ in atTop,
       (∑ μ : Matching n, continuousScoreLaw n (badMaleSpouseScores μ)) ≤
         ENNReal.ofReal ((n : ℝ) ^ (-4 : ℝ)) := by
-  filter_upwards [eventually_expectedNumStableMatchings_le_sizeLog,
+  filter_upwards [eventually_expectedNumStableMatchings_le_sizeSq,
     eventually_ge_atTop (8 : ℕ)] with n hmean hn
   have hn₈ : 8 ≤ (n : ℝ) := by exact_mod_cast hn
   have hn₀ : 0 < (n : ℝ) := by linarith only [hn₈]
-  have hlog : Real.log (n : ℝ) ≤ n :=
-    (Real.log_le_sub_one_of_pos hn₀).trans (by linarith only)
-  have hmean' : expectedNumStableMatchings n ≤ (n : ℝ) ^ 2 := by
-    simpa only [sq] using hmean.trans (mul_le_mul_of_nonneg_left hlog hn₀.le)
   calc
     _ ≤ ENNReal.ofReal (8 / (n : ℝ) ^ 7) * ENNReal.ofReal (expectedNumStableMatchings n) :=
       sum_measure_badMaleSpouseScores_le (Nat.cast_pos.mp hn₀)
     _ ≤ ENNReal.ofReal (8 / (n : ℝ) ^ 7) * ENNReal.ofReal ((n : ℝ) ^ 2) :=
-      mul_le_mul' le_rfl (ENNReal.ofReal_le_ofReal hmean')
+      mul_le_mul' le_rfl (ENNReal.ofReal_le_ofReal hmean)
     _ = ENNReal.ofReal ((8 / (n : ℝ) ^ 7) * (n : ℝ) ^ 2) :=
       (ENNReal.ofReal_mul (by positivity)).symm
     _ ≤ _ := ENNReal.ofReal_le_ofReal (by

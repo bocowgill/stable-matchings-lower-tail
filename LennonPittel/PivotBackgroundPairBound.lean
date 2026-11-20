@@ -97,56 +97,52 @@ private theorem eq_worsePartnerMen_of_mem_rightBackgroundSector {x : ScoreProfil
   · rw [ite_eq_right hm] at hi
     exact iff_of_false hm (not_lt_of_ge hi)
 
-/-- On a regular size sector, the background exception costs a factor
-`1200 / log L` in the uniform labeled-pair mass bound. The further event
-`E` need not be measurable with respect to the spouse scores. -/
-theorem eventually_measure_backgroundException_le_labeledStablePairMassBound
-    {α : ℝ} (hα : 0 < α) (hα' : α < 1 / 10) :
-    ∀ᶠ n : ℕ in atTop, ∀ {μ ν : Matching n} {U V : Finset (Fin n)},
-      LabeledPairOrientation μ ν U V →
-      ValidPairSizes n (U.card, V.card) → RegularPairSizes n α (U.card, V.card) →
-      ∀ {E : Set (ScoreProfile n)},
-        (∀ᵐ x ∂continuousScoreLaw n, x ∈ E → IsScoreStable x μ ∧ IsScoreStable x ν ∧
-          U = worsePartnerMen (profileOfScores x) μ ν ∧ InResidualEndpointScoreDomain x ν) →
-        continuousScoreLaw n (E ∩ backgroundShortCycleException μ ν (pivotShortCycleCutoff α n)) ≤
-          ENNReal.ofReal (1200 / Real.log (pivotShortCycleCutoff α n : ℝ)) *
-            ENNReal.ofReal (labeledStablePairMassBound n U.card V.card) := by
-  filter_upwards [eventually_backgroundShortCutoff_large hα,
-    eventually_backgroundArcError_small hα hα', eventually_backgroundLabelLoss_small hα hα',
-    eventually_gt_atTop (0 : ℕ)] with n hL hArc hLabel hn
-  intro μ ν U V hUV hValid hreg E hE
+/-- A background exception bound on the actual score law for regular orientation sizes. -/
+theorem measure_backgroundException_le_labeledStablePairMassBound_regular
+    {L : ℕ} (hn : 0 < n) (hbudget : BackgroundCycleBudget n L)
+    {μ ν : Matching n} {U V : Finset (Fin n)}
+    (hUV : LabeledPairOrientation μ ν U V)
+    (hValid : ValidPairSizes n (U.card, V.card))
+    (hreg : RegularOrientationPair n L (U.card, V.card))
+    {E : Set (ScoreProfile n)}
+    (hE : ∀ᵐ x ∂continuousScoreLaw n, x ∈ E → IsScoreStable x μ ∧ IsScoreStable x ν ∧
+      U = worsePartnerMen (profileOfScores x) μ ν ∧ InResidualEndpointScoreDomain x ν) :
+    continuousScoreLaw n (E ∩ backgroundShortCycleException μ ν L) ≤
+      ENNReal.ofReal (1200 / Real.log (L : ℝ)) *
+        ENNReal.ofReal (labeledStablePairMassBound n U.card V.card) := by
   let D := rightBackgroundSector (μ := μ) (ν := ν) U
   let A : Set (ScoreProfile n) :=
     {x | IsScoreStable x μ ∧ IsScoreStable x ν ∧ (splitTwoMatchingScores μ ν x).1 ∈ D}
   have hC : ((jointBackgroundLabels μ ν)ᶜ.card : ℝ) ≤
-      6 * (n : ℝ) ^ (1 - α) * Real.log n := by
+      2 * n / (Real.log n) ^ 3 := by
     rw [jointBackgroundLabels, commonLabels_compl_eq_relative_support, ← hUV.union_support,
       Finset.card_union_of_disjoint hUV.disjoint, Nat.cast_add]
-    exact add_le_of_regularPairSizes hn hreg
+    simpa only [two_mul, add_div] using add_le_add hreg.2.2.1 hreg.2.2.2
   have hGeom : ∀ᵐ d ∂jointSpouseScoreLaw μ ν, d ∈ D →
-      HasJointBackgroundGeometry d (pivotShortCycleCutoff α n)
-        (backgroundMaleCeiling n) (backgroundWeightCeiling n) := by
+      HasJointBackgroundGeometry d L (backgroundMaleCeiling n) := by
     filter_upwards [ae_jointSpouse_thresholds μ ν] with d hd hD
     have hY := (Real.rpow_pos_of_pos (Nat.cast_pos.mpr hn) (1 / 10 : ℝ)).trans_le hD.2.1
-    exact ⟨hY, hD.2.2.2, hD.2.2.1, (hArc.2 _ hD.2.1).2,
-      hLabel _ _ hC (jointBackgroundWeight_nonneg d hd.2.2.2 hY)
-        (sum_jointBackgroundWeight d hY) hD.2.2.1⟩
+    exact ⟨hY, hD.2.2.2, hbudget.arc _ hD.2.1,
+      (commonForwardLabelLoss_le_backgroundLabelBudget _ _ hC
+        (jointBackgroundWeight_nonneg d hd.2.2.2 hY)
+        (sum_jointBackgroundWeight d hY) hD.2.2.1).trans hbudget.label⟩
   have hX : 0 ≤ backgroundMaleCeiling n := by unfold backgroundMaleCeiling; positivity
-  have hP : 0 ≤ backgroundWeightCeiling n := by unfold backgroundWeightCeiling; positivity
-  have hA : continuousScoreLaw n A ≤ ENNReal.ofReal (labeledStablePairMassBound n U.card V.card) := by
+  have hA : continuousScoreLaw n A ≤
+      ENNReal.ofReal (labeledStablePairMassBound n U.card V.card) := by
     apply measure_stablePairSector_le_labeledStablePairMassBound hValid hUV rfl rfl
     filter_upwards [ae_injective_rows n] with x ht hx
     exact ⟨hx.1, hx.2.1, eq_worsePartnerMen_of_mem_rightBackgroundSector hUV ht hx.2.2⟩
   calc
-    _ ≤ continuousScoreLaw n (A ∩ backgroundShortCycleException μ ν (pivotShortCycleCutoff α n)) := by
+    _ ≤ continuousScoreLaw n (A ∩ backgroundShortCycleException μ ν L) := by
       apply measure_mono_ae
       filter_upwards [ae_injective_rows n, hE] with x ht hEx hx
       obtain ⟨hμ, hν, hU, hs⟩ := hEx hx.1
       exact ⟨⟨hμ, hν, split_mem_rightBackgroundSector ht hU hs⟩, hx.2⟩
-    _ ≤ ENNReal.ofReal (1200 / Real.log (pivotShortCycleCutoff α n : ℝ)) *
+    _ ≤ ENNReal.ofReal (1200 / Real.log (L : ℝ)) *
           continuousScoreLaw n A :=
-      continuousScoreLaw_inter_backgroundShortCycleException_le μ ν hL.1 hL.2 hX hP
-        hArc.1 (measurableSet_rightBackgroundSector U) hGeom
+      continuousScoreLaw_inter_backgroundShortCycleException_le μ ν hbudget.cutoff_two
+        hbudget.log_cutoff hX
+        (measurableSet_rightBackgroundSector U) hGeom
     _ ≤ _ := mul_le_mul_right hA _
 
 end LennonPittelFormalization

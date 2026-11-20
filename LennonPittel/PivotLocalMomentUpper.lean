@@ -506,18 +506,19 @@ theorem eventually_sum_integral_sq_localFilteredDecorationCount_le (K L : ℕ �
       (∑ μ : Matching n, ∑ ρ : Matching n,
         ∫ x, localFilteredDecorationCount b A B (K n) (L n) μ ρ x ^ 2 ∂stableMarkScoreLaw μ) ≤
         reverseFilterSecondMomentConstant 2 * (n : ℝ) * Real.sqrt n *
-          ((Real.exp 5 * (108 + 48 * Real.exp 4)) * Real.sqrt n * Real.log n +
+          ((singletonMomentScale * (108 + 48 * Real.exp 4)) * Real.sqrt n * Real.log n +
             (n : ℝ) ^ (-3 : ℝ)) := by
   filter_upwards [eventually_ae_diagonal_localPivotGeometry_certificate K L hB hκ hK hL
     hsmallLabel hsmallCompat, eventually_lintegral_profileSingletonAnchorCount_le,
     eventually_gt_atTop (0 : ℕ)] with n hn hmass hn' b A
   let E (μ ρ : Matching n) := {x | IsLocallyEligiblePivot b A B x μ ρ}
   let c := reverseFilterSecondMomentConstant 2 * (n : ℝ) * Real.sqrt n
-  let M := (Real.exp 5 * (108 + 48 * Real.exp 4)) * Real.sqrt n * Real.log n +
+  let M := (singletonMomentScale * (108 + 48 * Real.exp 4)) * Real.sqrt n * Real.log n +
     (n : ℝ) ^ (-3 : ℝ)
   have hc : 0 ≤ c := by unfold c reverseFilterSecondMomentConstant; positivity
   have hM : 0 ≤ M := by
     have hl : 0 ≤ Real.log (n : ℝ) := Real.log_nonneg (by exact_mod_cast hn')
+    have hs := singletonMomentScale_pos
     unfold M
     positivity
   have hmass' : (∑ μ : Matching n, ∑ ρ : Matching n, stableMarkScoreLaw μ (E μ ρ)) ≤

@@ -44,8 +44,7 @@ theorem tendsto_measure_badRotationStepGeometry_zero :
         profileOfScores ⁻¹' longStableExposedRotationEvent n (rotationLengthCutoff n)))
       atTop (𝓝 0) := by
   have hgood := tendsto_measure_badCoexposureScores_zero_of_mean_upper
-    (C := 1) zero_le_one
-    (by simpa only [one_mul] using eventually_expectedNumStableMatchings_le_sizeLog)
+    meanUpperConstant_nonneg eventually_expectedNumStableMatchings_le_meanUpper
   have h := hgood.add tendsto_measure_score_longStableExposedRotationEvent
   rw [add_zero] at h
   exact tendsto_const_nhds.squeeze' h (Eventually.of_forall fun _ ↦ zero_le)

@@ -81,75 +81,26 @@ theorem exists_squareRootLabelBudget {b C B E : ℝ} (hb : 0 < b)
   dsimp only [S] at ha₂
   nlinarith only [hCa, ha₂, mul_nonneg hC ha₀.le, ha₀.le]
 
-private theorem tendsto_reverseLowerArcEnvelope (a c C : ℝ) :
-    Tendsto (fun n : ℕ ↦ (a + 1) * (14 * C * (Real.log n / Real.sqrt n) +
-      (4 / c) * (n : ℝ) ^ (-(1 / 10) : ℝ))) atTop (𝓝 0) := by
-  have hlog : Tendsto (fun x : ℝ ↦ Real.log x / Real.sqrt x) atTop (𝓝 0) := by
-    simpa only [Real.sqrt_eq_rpow] using
-      (isLittleO_log_rpow_atTop (by norm_num : (0 : ℝ) < 1 / 2)).tendsto_div_nhds_zero
-  have hp := tendsto_rpow_neg_atTop (by norm_num : (0 : ℝ) < 1 / 10)
-  have h := ((hlog.const_mul (14 * C)).add (hp.const_mul (4 / c))).const_mul (a + 1)
-  simpa only [Function.comp_def, mul_zero, add_zero] using
-    h.comp (tendsto_natCast_atTop_atTop : Tendsto (fun n : ℕ ↦ (n : ℝ)) atTop atTop)
-
-/-- The lower arc error is eventually small uniformly over all admissible score
-vectors and support cutoffs. -/
-theorem eventually_reverseArcLowerBudget_uniform {a c C : ℝ} (ha : 0 ≤ a) (hc : 0 < c) :
-    ∀ᶠ n : ℕ in atTop, ∀ (K : ℕ) (X m : ℝ),
-      c * (n : ℝ) ^ (3 / 5 : ℝ) ≤ X → 0 ≤ m → m / X ≤ C * Real.log n / n →
-      (K : ℝ) ≤ a * Real.sqrt n →
-      let δ := 14 * m / X + Real.exp (-X / 4)
-      0 ≤ δ ∧ δ ≤ 1 ∧ (K : ℝ) * δ ≤ 1 / 4 := by
-  have hlim := (tendsto_order.1 (tendsto_reverseLowerArcEnvelope a c C)).2 (1 / 4) (by norm_num)
-  filter_upwards [hlim, eventually_ge_atTop (1 : ℕ)] with n hnlim hn K X m hX hm hrat hK
-  dsimp only at hnlim ⊢
-  have hnR : 1 ≤ (n : ℝ) := by exact_mod_cast hn
-  have hn₀ : 0 < (n : ℝ) := zero_lt_one.trans_le hnR
-  have hs : 1 ≤ Real.sqrt (n : ℝ) := by
-    simpa using Real.sqrt_le_sqrt hnR
-  have hp : 0 < (n : ℝ) ^ (3 / 5 : ℝ) := Real.rpow_pos_of_pos hn₀ _
-  have hX₀ : 0 < X := (mul_pos hc hp).trans_le hX
-  let δ := 14 * m / X + Real.exp (-X / 4)
-  have hδ₀ : 0 ≤ δ := by positivity
-  have hexp : Real.exp (-X / 4) ≤ 4 / X := by
-    rw [neg_div, Real.exp_neg]
-    calc
-      _ ≤ (X / 4)⁻¹ := inv_anti₀ (by positivity) (by linarith [Real.add_one_le_exp (X / 4)])
-      _ = _ := inv_div _ _
-  have hδ : δ ≤ 14 * C * Real.log n / n + 4 / (c * (n : ℝ) ^ (3 / 5 : ℝ)) := by
-    simpa only [δ, mul_div_assoc, mul_assoc] using
-      add_le_add (mul_le_mul_of_nonneg_left hrat (by norm_num : (0 : ℝ) ≤ 14))
-      (hexp.trans (div_le_div_of_nonneg_left (by norm_num) (mul_pos hc hp) hX))
-  have hlog : Real.sqrt (n : ℝ) * (14 * C * Real.log n / n) =
-      14 * C * (Real.log n / Real.sqrt n) := by
-    have hfrac : Real.sqrt (n : ℝ) / (n : ℝ) = 1 / Real.sqrt n :=
-      (div_eq_div_iff hn₀.ne' (Real.sqrt_pos.2 hn₀).ne').2
-        (by simpa only [one_mul, pow_two] using Real.sq_sqrt hn₀.le)
-    calc
-      _ = (14 * C * Real.log n) * (Real.sqrt (n : ℝ) / n) := by ring
-      _ = _ := by rw [hfrac]; ring
-  have he : Real.sqrt (n : ℝ) * (4 / (c * (n : ℝ) ^ (3 / 5 : ℝ))) =
-      (4 / c) * (n : ℝ) ^ (-(1 / 10) : ℝ) := by
-    rw [Real.sqrt_eq_rpow, show (-(1 / 10) : ℝ) = 1 / 2 - 3 / 5 by norm_num,
-      Real.rpow_sub hn₀]
-    ring
-  have hscaled : Real.sqrt (n : ℝ) * δ ≤
-      14 * C * (Real.log n / Real.sqrt n) + (4 / c) * (n : ℝ) ^ (-(1 / 10) : ℝ) := by
-    simpa only [mul_add, hlog, he] using
-      mul_le_mul_of_nonneg_left hδ (Real.sqrt_nonneg (n : ℝ))
-  have hlarge : (a + 1) * (Real.sqrt (n : ℝ) * δ) ≤ 1 / 4 :=
-    (mul_le_mul_of_nonneg_left hscaled (by positivity)).trans hnlim.le
-  refine ⟨hδ₀, ?_, ?_⟩
-  · have h₁ := mul_le_mul_of_nonneg_right hs hδ₀
-    have h₂ := mul_le_mul_of_nonneg_right (by linarith : 1 ≤ a + 1)
-      (mul_nonneg (Real.sqrt_nonneg (n : ℝ)) hδ₀)
-    linarith only [h₁, h₂, hlarge]
-  · calc
-      (K : ℝ) * δ ≤ (a * Real.sqrt (n : ℝ)) * δ := mul_le_mul_of_nonneg_right hK hδ₀
-      _ ≤ (a + 1) * (Real.sqrt (n : ℝ) * δ) := by
-        rw [mul_assoc]
-        gcongr
-        linarith
-      _ ≤ _ := hlarge
+/-- The relative loss on a square-root support is at most a constant times `n^(-1/10)`
+when the total score is at least `c n^(3/5)`. -/
+theorem eventually_reverseArcLowerBudget_uniform {a c : ℝ} (ha : 0 ≤ a) (hc : 0 < c) :
+    ∀ᶠ n : ℕ in atTop, ∀ (K : ℕ) (X : ℝ),
+      c * (n : ℝ) ^ (3 / 5 : ℝ) ≤ X → (K : ℝ) ≤ a * Real.sqrt n →
+      (K : ℝ) * reverseLowerArcError X ≤ 1 / 4 := by
+  have hlim := ((tendsto_rpow_neg_atTop (by norm_num : (0 : ℝ) < 1 / 10)).comp
+    (tendsto_natCast_atTop_atTop (R := ℝ))).const_mul (a / c)
+  filter_upwards [(tendsto_order.mp hlim).2 (1 / 4) (by norm_num),
+    eventually_gt_atTop (0 : ℕ)] with n hsmall hn K X hX hK
+  have hn' : 0 < (n : ℝ) := Nat.cast_pos.mpr hn
+  have hd : 0 < c * (n : ℝ) ^ (3 / 5 : ℝ) := mul_pos hc (Real.rpow_pos_of_pos hn' _)
+  calc
+    _ = (K : ℝ) / (1 + X) := by rw [reverseLowerArcError, mul_one_div]
+    _ ≤ (a * Real.sqrt n) / (c * (n : ℝ) ^ (3 / 5 : ℝ)) :=
+      div_le_div₀ (mul_nonneg ha (Real.sqrt_nonneg _)) hK hd (by linarith)
+    _ = (a / c) * (n : ℝ) ^ (-(1 / 10) : ℝ) := by
+      rw [Real.sqrt_eq_rpow, show (-(1 / 10) : ℝ) = 1 / 2 - 3 / 5 by norm_num,
+        Real.rpow_sub hn']
+      ring
+    _ ≤ _ := hsmall.le
 
 end LennonPittelFormalization

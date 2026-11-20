@@ -217,7 +217,7 @@ theorem isLittleO_pivotRawDiagonalMass (b A B κ : ℝ) (K L : ℕ → ℕ)
     (fun n : ℕ ↦ pivotRawDiagonalMass ⟨b, A, B, K n, L n⟩ n) =o[atTop]
       (fun n : ℕ ↦ ((n : ℝ) * Real.log n) ^ 2) := by
   let D := reverseFilterSecondMomentConstant 2
-  let C := Real.exp 5 * (108 + 48 * Real.exp 4)
+  let C := singletonMomentScale * (108 + 48 * Real.exp 4)
   have hD : 0 ≤ D := by unfold D reverseFilterSecondMomentConstant; positivity
   refine isLittleO_of_eventually_nonneg_le_pivotMomentEnvelope
     (D := D * (C + 1)) ?_
@@ -254,10 +254,10 @@ theorem isLittleO_incomparableMeanProductMass (b A B κ : ℝ) (K L : ℕ → �
     (hsmallCompat : Real.exp (κ * (2 * (1 + B))) * (2 * κ * (B / (1 / 128))) ≤ 3 / 32) :
     (fun n : ℕ ↦ ∫ x, (PivotCountParameters.mk b A B (K n) (L n)).incomparableMeanProductMass x
       ∂continuousScoreLaw n) =o[atTop] (fun n : ℕ ↦ ((n : ℝ) * Real.log n) ^ 2) := by
-  let C := twoForwardWindowConstant b A
+  let C := meanUpperConstant * twoForwardWindowConstant b A
   let a := Real.exp (2 * κ) * (κ + 1)
   let D := 2 * a ^ 2
-  have hC : 0 ≤ C := by unfold C twoForwardWindowConstant; positivity
+  have hC : 0 ≤ C := by unfold C meanUpperConstant twoForwardWindowConstant; positivity
   have ha : 0 ≤ a := by unfold a; positivity
   have hD : 0 ≤ D := by unfold D; positivity
   refine isLittleO_of_eventually_nonneg_le_pivotMomentEnvelope
@@ -407,48 +407,6 @@ theorem eventually_scaledCenteredCountMoment_le_of_pair_terms (b A B κ : ℝ) (
   apply (div_le_iff₀ (sq_pos_of_pos ha)).mpr
   exact hq.trans ((le_abs_self _).trans hn)
 
-/-- At a prescribed accuracy the two open pair terms only need eventual
-upper bounds. The short-cycle cutoff may be selected for this accuracy. -/
-theorem eventually_scaledCenteredCountMoment_le_of_pair_bounds (b A B κ : ℝ) (K L : ℕ → ℕ)
-    (hb : 0 < b) (hA : 0 ≤ A) (hB : 0 ≤ B) (hκ : 0 ≤ κ)
-    (hK : ∀ᶠ n in atTop, 2 ≤ K n ∧ (K n : ℝ) ≤ κ * Real.sqrt (n : ℝ))
-    (hL : Tendsto L atTop atTop)
-    (hsmallLabel : 24 * κ ^ 2 / 2 + (B + 1) * κ ≤ 1 / 4)
-    (hsmallCompat : Real.exp (κ * (2 * (1 + B))) * (2 * κ * (B / (1 / 128))) ≤ 3 / 32)
-    {e : ℝ} (he : 0 < e)
-    (hPair : ∀ᶠ n : ℕ in atTop,
-      (∫ x, PivotCountParameters.comparableResidualMass ⟨b, A, B, K n, L n⟩ x
-        ∂continuousScoreLaw n) ≤ (e / 8) * ((n : ℝ) * Real.log n) ^ 2 ∧
-      (∫ x, PivotCountParameters.incomparableCountProductMass ⟨b, A, B, K n, L n⟩ x
-        ∂continuousScoreLaw n) ≤ (e / 4) * ((n : ℝ) * Real.log n) ^ 2) :
-    ∀ᶠ n : ℕ in atTop,
-      scaledCenteredCountMoment (continuousScoreLaw n) ((n : ℝ) * Real.log n)
-        ((PivotCountParameters.mk b A B (K n) (L n)).aggregateCount n)
-        ((PivotCountParameters.mk b A B (K n) (L n)).aggregateMean n) ≤ ENNReal.ofReal e := by
-  let q (n : ℕ) := PivotCountParameters.mk b A B (K n) (L n)
-  have hD := isLittleO_pivotRawDiagonalMass b A B κ K L hB hκ hK hL hsmallLabel hsmallCompat
-  have hM := isLittleO_incomparableMeanProductMass b A B κ K L hb hA hB hκ hK hL
-    hsmallLabel hsmallCompat
-  have hd := isLittleO_iff.mp hD (show 0 < e / 4 by positivity)
-  have hm := isLittleO_iff.mp hM (show 0 < e / 4 by positivity)
-  filter_upwards [hd, hm, hPair, eventually_gt_atTop (1 : ℕ)] with n hnd hnm hpair hn
-  have ha : 0 < (n : ℝ) * Real.log n :=
-    mul_pos (by positivity) (Real.log_pos (by exact_mod_cast hn))
-  have hq := (q n).integral_centered_sq_le_pair_terms (n := n)
-  rw [(q n).integral_incomparableUpperMass_eq] at hq
-  have hs := abs_of_nonneg (sq_nonneg ((n : ℝ) * Real.log n))
-  rw [Real.norm_eq_abs, Real.norm_eq_abs, hs] at hnd hnm
-  have hd' := (le_abs_self _).trans hnd
-  have hm' := (le_abs_self _).trans hnm
-  rw [(q n).scaledCenteredCountMoment_aggregate_eq]
-  apply ENNReal.ofReal_le_ofReal
-  apply (div_le_iff₀ (sq_pos_of_pos ha)).mpr
-  refine hq.trans ?_
-  change pivotRawDiagonalMass (q n) n + 2 * (∫ x, (q n).comparableResidualMass x ∂continuousScoreLaw n) +
-    ((∫ x, (q n).incomparableCountProductMass x ∂continuousScoreLaw n) +
-      ∫ x, (q n).incomparableMeanProductMass x ∂continuousScoreLaw n) ≤ _
-  linarith only [hd', hm', hpair.1, hpair.2]
-
 private theorem eventually_pivotMean_large_of_abundance {b A B κ η : ℝ} (L : ℕ → ℕ)
     (hη : 0 ≤ η) (hA : 0 < A) (hB : 0 ≤ B) (hκ : 0 < κ)
     (hL : Tendsto L atTop atTop)
@@ -495,47 +453,6 @@ private theorem eventually_pivotMean_large_of_abundance {b A B κ η : ℝ} (L :
   filter_upwards [ae_injective_rows n, hAll] with x ht hall hx
   exact hnum.trans (totalLocalPivotConditionalMean_ge_of_abundance ht hall hx)
 
-/-- The two open pair integrals need only be eventually small at each
-accuracy, possibly for a different divergent short-cycle cutoff. The
-abundance parameters, and thus the lower-bound constant, are fixed first. -/
-theorem lennonPittel_of_tunable_pivot_pair_bounds
-    (hPair : ∀ b A B κ : ℝ, 0 < b → b ≤ 1 → 1 ≤ A → 0 < B → 0 < κ → κ < b →
-      24 * κ ^ 2 / 2 + (B + 1) * κ ≤ 1 / 4 →
-      Real.exp (κ * (2 * (1 + B))) * (2 * κ * (B / (1 / 128))) ≤ 3 / 32 →
-      ∀ e : ℝ, 0 < e → ∃ L : ℕ → ℕ, Tendsto L atTop atTop ∧
-        ∀ᶠ n : ℕ in atTop,
-          (∫ x, PivotCountParameters.comparableResidualMass
-              ⟨b, A, B, pivotDecorationSupportCap κ n, L n⟩ x ∂continuousScoreLaw n) ≤
-            (e / 8) * ((n : ℝ) * Real.log n) ^ 2 ∧
-          (∫ x, PivotCountParameters.incomparableCountProductMass
-              ⟨b, A, B, pivotDecorationSupportCap κ n, L n⟩ x ∂continuousScoreLaw n) ≤
-            (e / 4) * ((n : ℝ) * Real.log n) ^ 2)
-    (ε : ℕ → ℝ) (hε : Tendsto ε atTop (𝓝 0)) :
-    Tendsto (fun n : ℕ ↦ (uniformProfile n).toMeasure
-      {p | (numStableMatchings p : ℝ) ≥ ε n * expectedNumStableMatchings n})
-      atTop (𝓝 1) := by
-  apply lennonPittel_of_score_centered_counts_ae _ ε hε
-  intro η hη
-  obtain ⟨b, A, B, κ, hb, hb₁, hA, hB, hκ, hκb, hlabel, hcompat, hab⟩ :=
-    exists_eligiblePivotAbundance_and_supportCoefficient hη
-  let K := pivotDecorationSupportCap κ
-  let d := 3 * κ / (1280 * A)
-  have hA' := zero_lt_one.trans_le hA
-  have hd : 0 < d := by unfold d; positivity
-  have hK : ∀ᶠ n : ℕ in atTop, 2 ≤ K n ∧ (K n : ℝ) ≤ κ * Real.sqrt (n : ℝ) :=
-    (eventually_pivotDecorationSupportCap_bounds hκ).mono fun _ h ↦ ⟨h.1, h.2.1⟩
-  refine ⟨d, hd, fun e he ↦ ?_⟩
-  obtain ⟨L, hL, hbounds⟩ := hPair b A B κ hb hb₁ hA hB hκ hκb hlabel hcompat e he
-  let q (n : ℕ) := PivotCountParameters.mk b A B (K n) (L n)
-  refine ⟨fun n ↦ (q n).aggregateCount n, fun n ↦ (q n).aggregateMean n,
-    fun _ ↦ measurable_totalLocalFilteredDecorationCount _ _ _ _ _,
-    fun _ ↦ measurable_totalLocalPivotConditionalMean _ _ _ _ _, ?_⟩
-  filter_upwards [hK, eventually_gt_atTop (0 : ℕ),
-    eventually_pivotMean_large_of_abundance L hη.le hA' hB.le hκ hL hlabel hcompat hab,
-    eventually_scaledCenteredCountMoment_le_of_pair_bounds b A B κ K L hb hA'.le hB.le hκ.le hK hL
-      hlabel hcompat he hbounds] with n hnK hn hmean hvar
-  exact ⟨ae_totalLocalFilteredDecorationCount_le hn hκb hnK.2, hmean, hvar⟩
-
 /-- The two remaining analytic pair estimates imply the Lennon–Pittel tail.
 The other parts of the variance decomposition and the abundance lower
 bound are discharged by the actual marked score counts. -/
@@ -554,14 +471,26 @@ theorem lennonPittel_of_remaining_pivot_pair_estimates
     Tendsto (fun n : ℕ ↦ (uniformProfile n).toMeasure
       {p | (numStableMatchings p : ℝ) ≥ ε n * expectedNumStableMatchings n})
       atTop (𝓝 1) := by
-  apply lennonPittel_of_tunable_pivot_pair_bounds _ ε hε
-  intro b A B κ hb hb₁ hA hB hκ hκb hlabel hcompat e he
+  apply lennonPittel_of_score_centered_counts_ae _ ε hε
+  intro η hη
+  obtain ⟨b, A, B, κ, hb, hb₁, hA, hB, hκ, hκb, hlabel, hcompat, hab⟩ :=
+    exists_eligiblePivotAbundance_and_supportCoefficient hη
   obtain ⟨L, hL, hR, hC⟩ := hPair b A B κ hb hb₁ hA hB hκ hκb hlabel hcompat
-  refine ⟨L, hL, ?_⟩
-  filter_upwards [isLittleO_iff.mp hR (show 0 < e / 8 by positivity),
-    isLittleO_iff.mp hC (show 0 < e / 4 by positivity)] with n hnR hnC
-  rw [Real.norm_eq_abs, Real.norm_eq_abs,
-    abs_of_nonneg (sq_nonneg ((n : ℝ) * Real.log n))] at hnR hnC
-  exact ⟨(le_abs_self _).trans hnR, (le_abs_self _).trans hnC⟩
+  let K := pivotDecorationSupportCap κ
+  let d := 3 * κ / (1280 * A)
+  let q (n : ℕ) := PivotCountParameters.mk b A B (K n) (L n)
+  have hA' := zero_lt_one.trans_le hA
+  have hd : 0 < d := by unfold d; positivity
+  have hK : ∀ᶠ n : ℕ in atTop, 2 ≤ K n ∧ (K n : ℝ) ≤ κ * Real.sqrt (n : ℝ) :=
+    (eventually_pivotDecorationSupportCap_bounds hκ).mono fun _ h ↦ ⟨h.1, h.2.1⟩
+  refine ⟨d, hd, fun e he ↦ ?_⟩
+  refine ⟨fun n ↦ (q n).aggregateCount n, fun n ↦ (q n).aggregateMean n,
+    fun _ ↦ measurable_totalLocalFilteredDecorationCount _ _ _ _ _,
+    fun _ ↦ measurable_totalLocalPivotConditionalMean _ _ _ _ _, ?_⟩
+  filter_upwards [hK, eventually_gt_atTop (0 : ℕ),
+    eventually_pivotMean_large_of_abundance L hη.le hA' hB.le hκ hL hlabel hcompat hab,
+    eventually_scaledCenteredCountMoment_le_of_pair_terms b A B κ K L hb hA'.le hB.le hκ.le
+      hK hL hlabel hcompat hR hC he] with n hnK hn hmean hvar
+  exact ⟨ae_totalLocalFilteredDecorationCount_le hn hκb hnK.2, hmean, hvar⟩
 
 end LennonPittelFormalization
