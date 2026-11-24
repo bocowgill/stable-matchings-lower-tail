@@ -24,10 +24,11 @@ sources:
   - title: "How Many Stable Matchings in a Random Market?"
     type: "other"
     relationship: "formalizes"
-    location: "Unpublished manuscript, fixed-threshold proposition and appendix Dependence on the lower threshold"
+    location: "Earlier private manuscript draft, fixed-threshold proposition and appendix Dependence on the lower threshold"
     note: >-
-      The manuscript is private. Bo Cowgill and Will Cook are coauthors of the
-      fixed-threshold result stated in this proposition.
+      Bo Cowgill and Will Cook are coauthors of the fixed-threshold result stated
+      in this proposition. The proposition appeared in an earlier private draft
+      and is omitted from the current manuscript.
   - title: "On the Likely Number of Stable Marriages"
     authors: ["Craig Lennon"]
     id: "https://etd.ohiolink.edu/acprod/odb_etd/ws/send_file/send?accession=osu1194991095&disposition=inline"
@@ -106,7 +107,7 @@ review:
 alignment:
   namespace: "LennonPittel"
   statements:
-    - source: "How Many Stable Matchings in a Random Market?, fixed-threshold proposition"
+    - source: "How Many Stable Matchings in a Random Market?, earlier private draft, fixed-threshold proposition"
       lean: "LennonPittel.fixed_threshold_lower_tail"
       module: "Solution"
       status: "proved"
