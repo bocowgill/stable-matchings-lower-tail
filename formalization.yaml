@@ -8,8 +8,8 @@ project:
     chooses a uniformly random strict ranking. Write S_n for the number of stable
     complete matchings. For absolute constants C and t_0 greater than zero and
     every fixed 0 < t < t_0, the limit superior as n tends to infinity of
-    Pr(S_n <= t n log n) is at most C t^2 log(e/t). This makes the dependence
-    on the lower threshold explicit in the Lennon–Pittel result.
+    Pr(S_n <= t n log n) is at most C t^2 log(e/t). Bo Cowgill and Will Cook
+    are coauthors of this fixed-threshold result.
   authors:
     - "Bo Cowgill"
   responsible_maintainers:
@@ -25,7 +25,9 @@ sources:
     type: "other"
     relationship: "formalizes"
     location: "Unpublished manuscript, fixed-threshold proposition and appendix Dependence on the lower threshold"
-    note: "The draft is currently private. The Lean headline states the fixed-threshold proposition."
+    note: >-
+      The manuscript is private. Bo Cowgill and Will Cook are coauthors of the
+      fixed-threshold result stated in this proposition.
   - title: "On the Likely Number of Stable Marriages"
     authors: ["Craig Lennon"]
     id: "https://etd.ohiolink.edu/acprod/odb_etd/ws/send_file/send?accession=osu1194991095&disposition=inline"
