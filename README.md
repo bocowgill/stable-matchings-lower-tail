@@ -11,8 +11,6 @@ $$
 
 The bound makes explicit how the asymptotic probability of a small count decreases as the threshold $t$ decreases.
 
-An accompanying working paper is forthcoming.
-
 ## Authorship
 
 **Draft credit.** The fixed-threshold lower-tail result is joint work by Bo Cowgill and Will Cook. It builds on Bo Cowgill's earlier proof of the qualitative Lennon–Pittel conjecture. [Palomar v3][v3]
@@ -25,7 +23,7 @@ Bo Cowgill maintains this Lean project. OpenAI Codex was used to formalize the p
 
 The constants precede the quantifier over $t$, and $t$ is fixed before $n$ tends to infinity. The probability includes equality at the threshold.
 
-[Solution.lean](Solution.lean) supplies the proof from [FixedThreshold.lean](LennonPittel/Quantitative/FixedThreshold.lean). The proof formalizes the fixed-threshold proposition in the unpublished manuscript *How Many Stable Matchings in a Random Market?*
+[Solution.lean](Solution.lean) supplies the proof from [FixedThreshold.lean](LennonPittel/Quantitative/FixedThreshold.lean). A working paper version is forthcoming.
 
 ## Proof outline
 
