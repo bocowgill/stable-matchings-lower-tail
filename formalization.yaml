@@ -2,15 +2,14 @@
 version: "v0.4"
 
 project:
-  name: "The Lennon–Pittel conjecture on random stable matchings"
+  name: "A quantitative lower-tail bound for random stable matchings"
   description: >-
-    We prove the Lennon–Pittel conjecture for balanced stable marriage with
-    independent, uniform strict preferences. Let S_n count the stable complete
-    matchings between two sides of size n. For every positive nonincreasing
-    sequence epsilon_n tending to zero, the probability that S_n is at least
-    epsilon_n times its expectation tends to one. This gives a lower-tail
-    estimate at the scale of Pittel's first-moment asymptotic.
-    An accompanying working paper is in preparation.
+    In a balanced stable-marriage market of size n, each participant independently
+    chooses a uniformly random strict ranking. Write S_n for the number of stable
+    complete matchings. For absolute constants C and t_0 greater than zero and
+    every fixed 0 < t < t_0, the limit superior as n tends to infinity of
+    Pr(S_n <= t n log n) is at most C t^2 log(e/t). This makes the dependence
+    on the lower threshold explicit in the Lennon–Pittel result.
   authors:
     - "Bo Cowgill"
   responsible_maintainers:
@@ -22,17 +21,18 @@ classification:
   msc2020: ["05C70", "60C05"]
 
 sources:
-  - title: "Proof of the Lennon–Pittel conjecture on random stable matchings"
-    type: "original-proof"
-    relationship: "other"
-    note: "This project presents a Lean formalization of the proof."
+  - title: "How Many Stable Matchings in a Random Market?"
+    type: "other"
+    relationship: "formalizes"
+    location: "Unpublished manuscript, fixed-threshold proposition and appendix Dependence on the lower threshold"
+    note: "The draft is currently private. The Lean headline states the fixed-threshold proposition."
   - title: "On the Likely Number of Stable Marriages"
     authors: ["Craig Lennon"]
     id: "https://etd.ohiolink.edu/acprod/odb_etd/ws/send_file/send?accession=osu1194991095&disposition=inline"
     location: "The Ohio State University PhD dissertation (2007), §1.2 and Eq. (6.0.1), p. 117"
     type: "other"
     relationship: "background"
-    note: "States the conjecture. Chapter 4 gives a two-matching score integral used in the proof."
+    note: "States the qualitative conjecture. Chapter 4 gives a two-matching score integral used in the proof."
   - title: "On the Likely Number of Solutions for the Stable Marriage Problem"
     authors: ["Craig Lennon", "Boris Pittel"]
     id: "https://doi.org/10.1017/S0963548308009607"
@@ -46,23 +46,29 @@ sources:
     location: "SIAM Journal on Discrete Mathematics 2 (1989), 530–549"
     type: "paper"
     relationship: "background"
-    note: "The Lean development proves Pittel's first-moment asymptotic separately. The lower-tail proof uses an upper bound of order n log n."
+    note: "Gives the first-moment asymptotic. The lower-tail proof uses an upper bound of order n log n."
 
 related_formalizations:
+  - id: "https://palomar-registry.org/entry.html?id=PALOMAR-2026-11-07-000001&version=3"
+    relationship: "builds-on"
+    note: >-
+      The registered qualitative lower-tail proof supplies the finite model,
+      rotation counting, and centered-moment machinery used here.
   - id: "https://github.com/google-deepmind/formal-conjectures/commit/d2b6fdbe08ce4ca17d2c7f328f32c27115f5f6d6"
     relationship: "builds-on"
-    note: "Provides the exact headline statement and the finite StableMarriage model."
+    note: "Provides the finite StableMarriage model and the formal statement of the qualitative conjecture."
 
 status:
   scope: >-
-    The headline is the lower-tail limit for complete, strict, independent
-    uniform preferences on two sides of equal size. The proof also establishes
-    the same limit for every real threshold sequence tending to zero.
+    The headline concerns complete, strict, independent uniform preferences on
+    two sides of equal size. It bounds the closed lower-tail event at the
+    n log n scale, for each fixed positive threshold coefficient in an
+    absolute neighborhood of zero.
   sorry_count: 0
   sorry_in_definitions: 0
   axioms: ["propext", "Quot.sound", "Classical.choice"]
   main_results:
-    - declaration: "LennonPittel.lennon_pittel_conjecture"
+    - declaration: "LennonPittel.fixed_threshold_lower_tail"
       file: "Solution.lean"
       sorry_count: 0
       axioms: ["propext", "Quot.sound", "Classical.choice"]
@@ -73,41 +79,38 @@ automation:
     - method: "agent"
       framework: "OpenAI Codex"
       tool_setup: >-
-        OpenAI Codex assisted with the Lean formalization, including porting
-        the code, simplifying the row estimates, and checking the revised proof.
-        It also assisted with submission packaging and review.
-  notes: >-
-    Historical model versions, budgets, and prompt records for the original
-    development remain unrecorded in this metadata.
+        OpenAI Codex assisted with formalizing the manuscript argument in Lean,
+        checking the quantitative bounds, and preparing the verification
+        package. The development uses Lean 4, Mathlib, and Comparator.
+  notes: "A complete model and budget record for the reused proof development is unavailable."
 
 fidelity:
   divergences: >-
-    The headline retains the source's positivity, monotonicity and limit
-    hypotheses. The Lean model encodes strict rankings as permutations and the
-    random instance as the uniform distribution on the finite profile type.
-    The port constructs the mass function from its constant point masses.
-    This gives the independent uniform law in the source.
+    The headline uses the same closed event and quantifier order as the
+    manuscript. The Lean model encodes strict rankings by permutations and
+    uses the uniform law on the full finite profile type. This is the
+    independent uniform preference law in the source.
 
 review:
   status: "agent-reviewed"
   notes: >-
-    Bo Cowgill reviewed the headline statement and the metadata for the
-    earlier registered version. This revision preserves that statement and
-    finite model. The revised proof passed a warning-strict Lean 4.35.0
-    build. Its headline theorem uses only propext, Classical.choice, and
-    Quot.sound. Comparator checked the Challenge and Solution exports
-    with Lean, NanoDa, and con-ron on macOS in local-export mode with
-    Comparator's sandbox disabled.
+    Codex agents checked the statement against the fixed-threshold proposition,
+    including its quantifier order and the equality case in the lower-tail
+    event. The Solution built under Lean 4.35.0 with warnings treated as
+    errors. The local Comparator run accepted the proof with Lean, NanoDa,
+    and con-ron using separate exports on macOS with Comparator's sandbox
+    disabled. The v3 Palomar review covers the qualitative conjecture.
 
 alignment:
   namespace: "LennonPittel"
   statements:
-    - source: "Craig Lennon, On the Likely Number of Stable Marriages, Eq. (6.0.1)"
-      lean: "LennonPittel.lennon_pittel_conjecture"
+    - source: "How Many Stable Matchings in a Random Market?, fixed-threshold proposition"
+      lean: "LennonPittel.fixed_threshold_lower_tail"
       module: "Solution"
       status: "proved"
-      note: "Challenge states the same declaration independently using the explicit finite model."
+      note: "Challenge states the same declaration independently in the explicit finite model."
 
 acknowledgements: >-
-  The stable-marriage model and formal statement build on Formal Conjectures
-  and its contributors. The development uses Lean and Mathlib.
+  The stable-marriage model builds on Formal Conjectures and its contributors.
+  The quantitative proof builds on the Lean development of the Lennon–Pittel
+  conjecture and uses Lean and Mathlib.

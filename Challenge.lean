@@ -15,6 +15,8 @@ limitations under the License.
 -/
 module
 
+public import Mathlib.Analysis.SpecialFunctions.Log.Basic
+public import Mathlib.Order.LiminfLimsup
 public import Mathlib.Data.Fintype.Perm
 public import Mathlib.Data.Fintype.Pi
 public import Mathlib.Data.Fintype.Prod
@@ -24,18 +26,15 @@ public import Mathlib.Probability.ProbabilityMassFunction.Integrals
 @[expose] public section
 
 /-!
-# Lennon–Pittel conjecture on random stable matchings
+# A quantitative lower tail for random stable matchings
 
-Let $S_n$ count the stable complete matchings in a market with $n$ participants on each side.
-Each participant ranks all participants on the other side in a strict order. The preference
-profile is uniform over the product of the $2n$ sets of rankings, so the individual rankings
-are independent and uniform.
+In a balanced market of size `n` on each side, each participant chooses an
+independent uniform strict ranking of the other side. The probability below
+uses the uniform law on the product of all these ranking spaces. The count
+ranges over complete matchings with no blocking pair.
 
-Craig Lennon stated the conjecture in Eq. (6.0.1) of his
-[2007 dissertation](https://etd.ohiolink.edu/acprod/odb_etd/ws/send_file/send?accession=osu1194991095&disposition=inline#page=126).
-The [2009 paper with Boris Pittel](https://doi.org/10.1017/S0963548308009607) estimates the
-second moment and leaves the probability limit open. The definitions below are the finite model
-used for the conjecture in [Formal Conjectures](https://github.com/google-deepmind/formal-conjectures/pull/4955).
+The fixed-threshold proposition in *How Many Stable Matchings in a Random
+Market?* fixes `t` before taking the limit superior over `n`.
 -/
 
 open scoped ENNReal
@@ -102,29 +101,20 @@ instance {n : ℕ} : MeasurableSpace (Profile n) := ⊤
 noncomputable def uniformProfile (n : ℕ) : PMF (Profile n) :=
   PMF.fintypeUniform (Profile n)
 
-/-- The expected number of stable matchings under the uniform profile distribution. -/
-noncomputable def expectedNumStableMatchings (n : ℕ) : ℝ :=
-  ∫ p, (numStableMatchings p : ℝ) ∂((uniformProfile n).toMeasure)
-
 end StableMarriage
 
 open Filter
-open scoped Topology
 
 namespace LennonPittel
 
-/-- For independent uniform strict preferences, the probability that the number of stable
-matchings is at least $\varepsilon_n$ times its expectation tends to one for every positive
-nonincreasing sequence $\varepsilon_n$ tending to zero. -/
-theorem lennon_pittel_conjecture
-    (ε : ℕ → ℝ) (hε_pos : ∀ n, 0 < ε n) (hε_antitone : Antitone ε)
-    (hε_tendsto : Tendsto ε atTop (𝓝 0)) :
-    Tendsto
-      (fun n ↦
-        (StableMarriage.uniformProfile n).toMeasure
-          {p | (StableMarriage.numStableMatchings p : ℝ) ≥
-            ε n * StableMarriage.expectedNumStableMatchings n})
-      atTop (𝓝 1) := by
+/-- For every sufficiently small fixed positive threshold `t`, the limiting
+upper probability that the number of stable matchings is at most `t * n * log n`
+is bounded by an absolute constant times `t^2 * log (exp 1 / t)`. -/
+theorem fixed_threshold_lower_tail :
+    ∃ C t₀ : ℝ, 0 < C ∧ 0 < t₀ ∧ ∀ t : ℝ, 0 < t → t < t₀ →
+      limsup (fun n : ℕ ↦ ((StableMarriage.uniformProfile n).toMeasure
+        {p | (StableMarriage.numStableMatchings p : ℝ) ≤
+          t * ((n : ℝ) * Real.log n)}).toReal) atTop ≤ C * t ^ 2 * Real.log (Real.exp 1 / t) := by
   sorry
 
 end LennonPittel

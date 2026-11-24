@@ -407,7 +407,9 @@ theorem eventually_scaledCenteredCountMoment_le_of_pair_terms (b A B κ : ℝ) (
   apply (div_le_iff₀ (sq_pos_of_pos ha)).mpr
   exact hq.trans ((le_abs_self _).trans hn)
 
-private theorem eventually_pivotMean_large_of_abundance {b A B κ η : ℝ} (L : ℕ → ℕ)
+/-- An eventual failure budget for eligible pivots bounds the failure of the
+aggregate conditional mean to reach its fixed-cutoff lower bound. -/
+theorem eventually_pivotMean_large_of_abundance {b A B κ η : ℝ} (L : ℕ → ℕ)
     (hη : 0 ≤ η) (hA : 0 < A) (hB : 0 ≤ B) (hκ : 0 < κ)
     (hL : Tendsto L atTop atTop)
     (hsmallLabel : 24 * κ ^ 2 / 2 + (B + 1) * κ ≤ 1 / 4)

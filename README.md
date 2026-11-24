@@ -1,56 +1,29 @@
-# The Lennon–Pittel conjecture on random stable matchings
+# A quantitative lower-tail bound for random stable matchings
 
-Consider a market with $n$ participants on each of two sides. Each
-participant independently chooses a uniform strict ranking of the other side.
-A complete matching is stable if no unmatched pair both prefer each other to
-their assigned partners. Write $S_n$ for the number of stable matchings.
+In a market with $n$ participants on each of two sides, each participant independently chooses a uniformly random strict ranking of the other side. A complete matching is stable if no unmatched pair both prefer each other to their assigned partners. Let $S_n$ be the number of stable matchings.
 
-This project proves that for every positive nonincreasing sequence
-$\varepsilon_n \to 0$,
+There are absolute constants $C,t_0>0$ such that for each fixed $0<t<t_0$,
 
 $$
-\mathbb P\!\left(S_n \ge \varepsilon_n\,\mathbb E[S_n]\right) \to 1.
+\limsup_{n\to\infty}\mathbb{P}(S_n\le t\,n\log n)
+\le C t^2\log(e/t).
 $$
 
-The theorem is Eq. (6.0.1) in Lennon's dissertation. The 2009 paper of Lennon
-and Pittel gives a second-moment estimate and asks whether the lower-tail
-success probability tends to one. Pittel's first-moment asymptotic puts the
-expectation at scale $n\log n$. [Lennon 2007][thesis] · [Lennon–Pittel 2009][lp]
-· [Pittel 1989][pittel]
-
-An accompanying working paper is in preparation.
+The bound makes explicit how the asymptotic probability of a small count decreases as the threshold $t$ decreases. It strengthens the qualitative lower-tail estimate in the formal proof of the Lennon–Pittel conjecture. [Palomar v3][v3]
 
 ## Formal statement
 
-[Challenge.lean](Challenge.lean) states
-`LennonPittel.lennon_pittel_conjecture` and defines the finite model directly.
-A profile consists of $2n$ permutations, each sending a candidate to their
-rank. The uniform law on the product of these permutation spaces makes the
-rankings independent and uniform. The stability predicate excludes strict
-blocking pairs, and the probability and expectation use the same finite law.
-The Lean 4.35 port constructs the uniform probability mass function
-directly, assigning each profile the reciprocal of the number of profiles.
+[Challenge.lean](Challenge.lean) states `LennonPittel.fixed_threshold_lower_tail` and defines the finite model. A profile consists of $2n$ permutations, each sending a candidate to that candidate's rank. The uniform law on the finite profile type gives each ranking independently and uniformly. The stable matching count uses the exclusion of strict blocking pairs.
 
-[Solution.lean](Solution.lean) proves that declaration using the theorem in
-[LennonPittelProof.lean](LennonPittel/LennonPittelProof.lean). The latter also
-gives the same conclusion for an arbitrary real sequence tending to zero.
-The formal statement and finite model retain their original attribution.
-[Formal Conjectures PR #4955][fc]
+The constants precede the quantifier over $t$, and $t$ is fixed before $n$ tends to infinity. The probability includes equality at the threshold.
+
+[Solution.lean](Solution.lean) supplies the proof from [FixedThreshold.lean](LennonPittel/Quantitative/FixedThreshold.lean). The proof formalizes the fixed-threshold proposition in the unpublished manuscript *How Many Stable Matchings in a Random Market?*
 
 ## Proof outline
 
-1. Transfer the finite model to independent continuous scores and bound the
-   expected number of stable matchings by a constant times $n\log n$.
-2. Count a subfamily of stable matchings indexed by a rotation and compatible
-   earlier rotations. Each counted matching determines its index. Bound the
-   resulting random count's conditional center from below at scale
-   $n\log n$.
-3. Bound the centered second moment by counting pairs of matchings. For the
-   residual from comparable anchors, the switch removes one selected shared
-   rotation from the earlier undo set if present. The resulting incomparable
-   endpoints recover the two switched choices. Only that rotation's original
-   membership in the earlier set is unknown, giving at most two inputs per
-   ordered pair. Short-cycle estimates bound the resulting pairs.
+1. Weight each sole exposed rotation by its length. The resulting bounds on expected participation below $b\sqrt n$ and above $A\sqrt n$, divided by $n\log n$, have limiting orders $b^2$ and $\exp(-A^2/32)$.
+2. Use the rotation walk to find enough eligible anchors between these cutoffs. At each such anchor, count matchings obtained by undoing small compatible rotations. The conditional mean of this count is bounded below by an absolute multiple of $(b/A)n\log n$ when enough anchors are present.
+3. Use the centered second moment for the count at fixed cutoffs. The probability of going below half the conditional-mean floor is bounded by the probability of too few anchors plus a term tending to zero. Taking $A^2$ proportional to $\log(e/t)$ and $b$ proportional to $tA$ gives the stated rate.
 
 ## Local verification
 
@@ -61,22 +34,9 @@ lake exe cache get
 lake --wfail build Solution
 ```
 
-On Linux with Bubblewrap and unprivileged user namespaces, run
-`scripts/verify-comparator.sh`. On macOS, run
-`scripts/verify-comparator.sh --local-exports` from a trusted checkout.
-The macOS command compares exports from separate local builds without the
-Linux sandbox. Both commands run Lean Comparator with NanoDa and con-ron.
-Comparator checks that the Solution proves the Challenge statement and
-checks its axiom dependencies.
-The Challenge has one deliberate `sorry` at its headline declaration.
-The axiom allowlist is `propext`, `Quot.sound`, and `Classical.choice`.
-[Palomar submission guide][palomar]
+On Linux with Bubblewrap and unprivileged user namespaces, run `scripts/verify-comparator.sh`. On macOS, run `scripts/verify-comparator.sh --local-exports` from a trusted checkout. The macOS command compares exports from separate local builds with Comparator's sandbox disabled. Both commands use Lean Comparator with NanoDa and con-ron. The Challenge contains one deliberate `sorry` at the headline statement. The comparator axiom allowlist is `propext`, `Quot.sound`, and `Classical.choice`. [Palomar submission guide][palomar]
 
-The project uses Apache-2.0. See [LICENSE](LICENSE) and
-[formalization.yaml](formalization.yaml) for attribution and provenance.
+The project uses Apache-2.0. See [LICENSE](LICENSE) and [formalization.yaml](formalization.yaml) for attribution and provenance.
 
-[thesis]: https://etd.ohiolink.edu/acprod/odb_etd/ws/send_file/send?accession=osu1194991095&disposition=inline#page=126
-[lp]: https://doi.org/10.1017/S0963548308009607
-[pittel]: https://doi.org/10.1137/0402048
-[fc]: https://github.com/google-deepmind/formal-conjectures/pull/4955
+[v3]: https://palomar-registry.org/entry.html?id=PALOMAR-2026-11-07-000001&version=3
 [palomar]: https://palomar-registry.org/how-to-submit

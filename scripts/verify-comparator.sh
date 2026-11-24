@@ -12,7 +12,7 @@ prefix=$(lean --print-prefix)
 verification_dir=$(mktemp -d "${TMPDIR:-/tmp}/lennon-pittel-comparator.XXXXXX")
 trap 'rm -rf -- "$verification_dir"' EXIT
 config="$verification_dir/comparator.json"
-headline="LennonPittel.lennon_pittel_conjecture"
+headline="LennonPittel.fixed_threshold_lower_tail"
 
 # Palomar installs the bundled checkers itself. Register them only in the local copy.
 python3 - comparator.json "$config" "$prefix" "$headline" <<'PY'

@@ -15,33 +15,25 @@ limitations under the License.
 -/
 module
 
-public import LennonPittel.LennonPittelProof
+public import LennonPittel.Quantitative.FixedThreshold
 
-/-!
-# The Lennon–Pittel conjecture
-
-The proof below specializes the lower-tail theorem to the original hypotheses.
--/
+/-! # The fixed-threshold lower tail for random stable matchings -/
 
 public section
 
 open Filter
-open scoped Topology
 
 namespace LennonPittel
 
-/-- For independent uniform strict preferences, the probability that the number of stable
-matchings is at least $\varepsilon_n$ times its expectation tends to one for every positive
-nonincreasing sequence $\varepsilon_n$ tending to zero. -/
-theorem lennon_pittel_conjecture
-    (ε : ℕ → ℝ) (hε_pos : ∀ n, 0 < ε n) (hε_antitone : Antitone ε)
-    (hε_tendsto : Tendsto ε atTop (𝓝 0)) :
-    Tendsto
-      (fun n ↦
-        (StableMarriage.uniformProfile n).toMeasure
-          {p | (StableMarriage.numStableMatchings p : ℝ) ≥
-            ε n * StableMarriage.expectedNumStableMatchings n})
-      atTop (𝓝 1) :=
-  LennonPittelFormalization.lennon_pittel_conjecture_verified ε hε_pos hε_antitone hε_tendsto
+/-- For every sufficiently small fixed positive threshold `t`, the limiting
+upper probability that the number of stable matchings is at most `t * n * log n`
+is bounded by an absolute constant times `t^2 * log (exp 1 / t)`. -/
+theorem fixed_threshold_lower_tail :
+    ∃ C t₀ : ℝ, 0 < C ∧ 0 < t₀ ∧ ∀ t : ℝ, 0 < t → t < t₀ →
+      limsup (fun n : ℕ ↦ ((StableMarriage.uniformProfile n).toMeasure
+        {p | (StableMarriage.numStableMatchings p : ℝ) ≤
+          t * ((n : ℝ) * Real.log n)}).toReal) atTop ≤ C * t ^ 2 * Real.log (Real.exp 1 / t) := by
+  simpa only [LennonPittelFormalization.fixedThresholdLimsup] using
+    LennonPittelFormalization.fixedThreshold_lowerTail
 
 end LennonPittel

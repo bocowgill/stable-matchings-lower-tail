@@ -2,7 +2,7 @@
   "challenge_module": "Challenge",
   "solution_module": "Solution",
   "theorem_names": [
-    "LennonPittel.lennon_pittel_conjecture"
+    "LennonPittel.fixed_threshold_lower_tail"
   ],
   "permitted_axioms": [
     "propext",
