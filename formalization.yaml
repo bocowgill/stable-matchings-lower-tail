@@ -12,6 +12,7 @@ project:
     are coauthors of this fixed-threshold result.
   authors:
     - "Bo Cowgill"
+    - "Will Cook"
   responsible_maintainers:
     - "Bo Cowgill"
   license: "Apache-2.0"

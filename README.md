@@ -15,7 +15,7 @@ The bound makes explicit how the asymptotic probability of a small count decreas
 
 The fixed-threshold lower-tail result is joint work by Bo Cowgill and Will Cook. It builds on Bo Cowgill's earlier proof of the qualitative Lennon–Pittel conjecture. [Palomar v3][v3]
 
-Bo Cowgill maintains this Lean project. OpenAI Codex was used to formalize the proof in Lean and assist with verification.
+Bo Cowgill led the Lean formalization and maintains this project. OpenAI Codex was used to formalize the proof in Lean and assist with verification.
 
 ## Formal statement
 
